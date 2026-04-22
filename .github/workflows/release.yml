@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            suffix: linux-amd64
+          - goos: linux
+            goarch: arm64
+            suffix: linux-arm64
+          - goos: darwin
+            goarch: amd64
+            suffix: macos-amd64
+          - goos: darwin
+            goarch: arm64
+            suffix: macos-arm64
+          - goos: windows
+            goarch: amd64
+            suffix: windows-amd64.exe
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Build
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: |
+        go build -ldflags="-s -w" -o necromancy-${{ matrix.suffix }} .
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: necromancy-${{ matrix.suffix }}
+        path: necromancy-${{ matrix.suffix }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts
+
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
+        draft: false
+        prerelease: false
+        body: |
+          ## Necromancy - Advanced Shell Manager
+          
+          Multi-platform post-exploitation tool with advanced features:
+          
+          - ✅ Reverse shell management
+          - ✅ Session multiplexing
+          - ✅ Post-exploitation modules
+          - ✅ File transfer capabilities
+          - ✅ Port forwarding
+          - ✅ Multi-platform support
+          
+          ### Download
+          
+          - **Linux AMD64**: `necromancy-linux-amd64`
+          - **Linux ARM64**: `necromancy-linux-arm64`
+          - **macOS AMD64**: `necromancy-macos-amd64`
+          - **macOS ARM64 (M1/M2)**: `necromancy-macos-arm64`
+          - **Windows AMD64**: `necromancy-windows-amd64.exe`
+        files: |
+          artifacts/necromancy-linux-amd64/necromancy-linux-amd64
+          artifacts/necromancy-linux-arm64/necromancy-linux-arm64
+          artifacts/necromancy-macos-amd64/necromancy-macos-amd64
+          artifacts/necromancy-macos-arm64/necromancy-macos-arm64
+          artifacts/necromancy-windows-amd64.exe/necromancy-windows-amd64.exe
