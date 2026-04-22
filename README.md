@@ -70,7 +70,16 @@ chmod +x necromancy-macos-arm64
 # Download necromancy-windows-amd64.exe from releases
 ```
 
-#### Option 2: Build from Source
+#### Option 2: Install with Go
+```bash
+# Install directly from source
+go install github.com/Aryma-f4/necromancy@latest
+
+# Or install specific version
+go install github.com/Aryma-f4/necromancy@v1.0.0
+```
+
+#### Option 3: Build from Source
 ```bash
 # Clone the repository
 git clone https://github.com/Aryma-f4/necromancy.git

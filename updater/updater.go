@@ -23,11 +23,16 @@ type GitHubRelease struct {
 }
 
 // Current version information
-const (
-	CurrentVersion = "1.0.0"
+var (
+	CurrentVersion = "1.0.0" // Will be overridden by main package
 	RepoOwner      = "Aryma-f4"
 	RepoName       = "necromancy"
 )
+
+// SetVersion allows the main package to set the current version
+func SetVersion(version string) {
+	CurrentVersion = version
+}
 
 // CheckForUpdate checks if a new version is available
 func CheckForUpdate() (*GitHubRelease, error) {

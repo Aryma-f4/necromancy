@@ -13,9 +13,23 @@ import (
 	"github.com/Aryma-f4/necromancy/updater"
 )
 
+// Version variables - will be set by build flags
+var (
+	Version   = "dev"
+	BuildDate = "unknown"
+)
+
 func main() {
 	printColoredBanner()
 	time.Sleep(1 * time.Second) // Tambahkan delay seperti yang diminta
+
+	// Display version info
+	fmt.Printf("\n Version : %s ", Version)
+	fmt.Printf("\n Build Date : %s ", BuildDate)
+	fmt.Printf("\n Multi-platform post-exploitation tool with advanced features:\n\n")
+
+	// Set version in updater package
+	updater.SetVersion(Version)
 
 	// Parse args
 	core.InitConfig()

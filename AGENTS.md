@@ -117,6 +117,18 @@ func (m *MyModule) Execute(s *core.Session) error {
 
 ## 🚀 Command Line Interface
 
+### Installation via Go
+```bash
+# Install latest version
+go install github.com/Aryma-f4/necromancy@latest
+
+# Install specific version
+go install github.com/Aryma-f4/necromancy@v1.0.0
+
+# Build with version info
+go build -ldflags="-s -w -X main.Version=1.0.0 -X main.BuildDate=$(date -u +%Y-%m-%d)" -o necromancy .
+```
+
 ### Basic Usage
 ```bash
 ./necromancy -p 4444                    # Single port
