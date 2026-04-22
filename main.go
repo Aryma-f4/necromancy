@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Aryma-f4/necromancy/core"
@@ -25,7 +26,9 @@ func main() {
 
 	// Display version info
 	fmt.Printf("\n Version : %s ", Version)
-	fmt.Printf("\n Build Date : %s ", BuildDate)
+	// Replace underscore with space for better display
+	displayDate := strings.Replace(BuildDate, "_", " ", 1)
+	fmt.Printf("\n Build Date : %s UTC", displayDate)
 	fmt.Printf("\n Multi-platform post-exploitation tool with advanced features:\n\n")
 
 	// Set version in updater package

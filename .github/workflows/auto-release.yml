@@ -48,7 +48,7 @@ jobs:
         if [ -z "$VERSION" ]; then
           VERSION=$(git rev-parse --short HEAD)
         fi
-        BUILD_DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        BUILD_DATE=$(date -u +"%Y-%m-%d_%H:%M:%S")
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         echo "BUILD_DATE=$BUILD_DATE" >> $GITHUB_ENV
         echo "version=$VERSION" >> $GITHUB_OUTPUT
