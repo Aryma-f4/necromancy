@@ -10,11 +10,13 @@ import (
 	"github.com/Aryma-f4/necromancy/core"
 	"github.com/Aryma-f4/necromancy/server"
 	"github.com/Aryma-f4/necromancy/ui"
+	"github.com/Aryma-f4/necromancy/updater"
 )
 
 func main() {
 	printColoredBanner()
 	time.Sleep(1 * time.Second) // Tambahkan delay seperti yang diminta
+
 	// Parse args
 	core.InitConfig()
 	flag.StringVar(&core.GlobalConfig.Ports, "p", "4444", "Port to listen on")
@@ -25,7 +27,29 @@ func main() {
 	flag.BoolVar(&core.GlobalConfig.NoLog, "L", false, "Disable session log files")
 	flag.BoolVar(&core.GlobalConfig.NoUpgrade, "U", false, "Disable shell auto-upgrade")
 	flag.BoolVar(&core.GlobalConfig.OSCPSafe, "O", false, "Enable OSCP-safe mode")
+
+	// Auto-update flags
+	var checkUpdate bool
+	var autoUpdate bool
+	flag.BoolVar(&checkUpdate, "check-update", false, "Check for updates")
+	flag.BoolVar(&autoUpdate, "update", false, "Auto-update to latest version")
+
 	flag.Parse()
+
+	// Handle auto-update functionality
+	if autoUpdate {
+		if err := updater.AutoUpdate(); err != nil {
+			fmt.Printf("[-] Auto-update failed: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("[✓] Update completed. Please restart the application.")
+		os.Exit(0)
+	}
+
+	if checkUpdate {
+		updater.CheckAndNotify()
+		os.Exit(0)
+	}
 
 	// Setup logging to file since stdout is used by tview
 	f, err := os.OpenFile("necromancy-go.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)

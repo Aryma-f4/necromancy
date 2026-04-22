@@ -145,4 +145,10 @@ func printColoredBanner() {
 	for _, line := range lines {
 		fmt.Println(line)
 	}
+
+	// Tampilkan versi dan link
+	fmt.Println("")
+	fmt.Println("\033[90m v1.0.0 - Advanced Shell Manager \033[0m")
+	fmt.Println("\033[90m https://github.com/Aryma-f4/necromancy \033[0m")
+	fmt.Println("")
 }
