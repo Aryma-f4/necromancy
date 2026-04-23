@@ -93,11 +93,14 @@ func (m *FileManagerModule) Execute(s *core.Session) error {
 	bannerView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter).
-		SetText(getBannerFromFile() + "\n[gray]v1.1 Stable Release - File Manager[-]\n[blue]Interactive File Management for Target Systems[-]")
+		SetText(getBannerFromFile() + "\n[gray]v1.2 Stable Release - File Manager[-]\n[blue]Interactive File Management for Target Systems[-]")
 
 	bannerView.SetBackgroundColor(tcell.ColorBlack)
 
-	fileManager := NewFileManagerUI(fms, app)
+	// Create file manager with exit callback
+	fileManager := NewFileManagerUI(fms, app, func() {
+		app.Stop()
+	})
 
 	// Create layout with banner at top
 	mainLayout := tview.NewFlex().SetDirection(tview.FlexRow)
@@ -122,15 +125,17 @@ type FileManagerUI struct {
 	currentPath   string
 	files         []FileInfo
 	selectedIndex int
+	onExit        func() // Callback for exit handling
 }
 
 // NewFileManagerUI creates a new file manager interface
-func NewFileManagerUI(session *FileManagerSession, app *tview.Application) *FileManagerUI {
+func NewFileManagerUI(session *FileManagerSession, app *tview.Application, onExit func()) *FileManagerUI {
 	fm := &FileManagerUI{
 		session:       session,
 		app:           app,
 		currentPath:   ".",
 		selectedIndex: 0,
+		onExit:        onExit,
 	}
 
 	fm.setupUI()
@@ -192,7 +197,10 @@ func (fm *FileManagerUI) setupEventHandlers() {
 		case tcell.KeyRune:
 			switch event.Rune() {
 			case 'q', 'Q':
-				fm.app.Stop()
+				// Use callback to exit properly
+				if fm.onExit != nil {
+					fm.onExit()
+				}
 				return nil
 			case 'r', 'R':
 				fm.refreshFiles()
@@ -260,7 +268,7 @@ func (fm *FileManagerUI) getFiles(path string) []FileInfo {
 		return []FileInfo{}
 	}
 
-	// Try to list files using the enhanced session
+	// Try to list files using the enhanced session with timeout
 	files, err := fmc.ListFiles(sanitizedPath)
 	if err != nil {
 		fm.updateStatus(fmt.Sprintf("Error listing files: %v", err))
@@ -545,6 +553,9 @@ func (fm *FileManagerUI) showHelp() {
 [yellow]System:[white]
   q - Quit file manager
   h - Show this help
+  
+[yellow]Exit:[white]
+  Esc - Return to session actions
 
 Press any key to close help...`
 
@@ -553,12 +564,20 @@ Press any key to close help...`
 		SetDynamicColors(true).
 		SetText(helpText)
 
-	helpModal := tview.NewModal().
+	// Create a simple modal that closes on any key
+	modal := tview.NewModal().
 		SetText(helpView.GetText(false)).
 		AddButtons([]string{"Close"}).
 		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-			fm.app.SetRoot(fm.Layout, true)
+			// Just close the help, don't change the root
 		})
 
-	fm.app.SetRoot(helpModal, false)
+	// Show the help modal temporarily
+	fm.app.SetRoot(modal, false)
+
+	// Set a timer to auto-close the help after a few seconds
+	go func() {
+		time.Sleep(5 * time.Second)
+		fm.app.SetRoot(fm.Layout, true)
+	}()
 }

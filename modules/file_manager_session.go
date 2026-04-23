@@ -64,22 +64,40 @@ func (fms *FileManagerSession) ExecuteCommand(cmd string, timeout time.Duration)
 		<-fms.commandOutput
 	}
 
-	// Send command
+	// Send command with proper formatting
 	_, err := fms.Write([]byte(cmd + "\n"))
 	if err != nil {
 		return "", fmt.Errorf("failed to send command: %v", err)
 	}
 
-	// Collect output
+	// Collect output with timeout
 	var output strings.Builder
 	deadline := time.After(timeout)
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
 
 	for {
 		select {
 		case line := <-fms.commandOutput:
-			output.WriteString(line + "\n")
+			if line != "" {
+				output.WriteString(line + "\n")
+			}
+		case <-ticker.C:
+			// Check if we have enough output
+			if output.Len() > 0 {
+				// Give it a bit more time
+				select {
+				case line := <-fms.commandOutput:
+					if line != "" {
+						output.WriteString(line + "\n")
+					}
+				case <-time.After(200 * time.Millisecond):
+					// No more output, return what we have
+					return strings.TrimSpace(output.String()), nil
+				}
+			}
 		case <-deadline:
-			return output.String(), nil
+			return strings.TrimSpace(output.String()), nil
 		}
 	}
 }

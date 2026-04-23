@@ -148,7 +148,7 @@ func printColoredBanner() {
 
 	// Tampilkan versi dan link
 	fmt.Println("")
-	fmt.Println("\033[90m v1.1 Stable Release - Advanced Shell Manager \033[0m")
+	fmt.Println("\033[90m v1.2 Stable Release - Advanced Shell Manager \033[0m")
 	fmt.Println("\033[90m https://github.com/Aryma-f4/necromancy \033[0m")
 	fmt.Println("")
 }

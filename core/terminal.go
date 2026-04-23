@@ -15,7 +15,10 @@ func Interact(s *Session) {
 	s.Attach()
 	defer s.Detach()
 
-	fmt.Printf("\r\n[+] Interacting with Session %d (%s) - Type 'exit' to close, press F12, or Ctrl-] to detach\r\n", s.ID, s.RemoteAddr)
+	fmt.Printf("\r\n[+] Interacting with Session %d (%s)\r\n", s.ID, s.RemoteAddr)
+	fmt.Printf("[!] Press F12 or Ctrl-] to detach from this session\r\n")
+	fmt.Printf("[!] Type 'exit' to close the shell\r\n")
+	fmt.Printf("[+] Starting interactive shell...\r\n\r\n")
 
 	// Dump history first
 	s.mu.Lock()
@@ -52,6 +55,7 @@ func Interact(s *Session) {
 		for data := range s.LiveOutput {
 			if data == nil { // EOF signal
 				fmt.Printf("\r\n[-] Connection closed by remote host.\r\n")
+				fmt.Printf("[!] Press F12 or Ctrl-] to return to menu\r\n")
 				done <- true
 				return
 			}
@@ -72,6 +76,7 @@ func Interact(s *Session) {
 			// Fallback detach key for terminals where F12 is not passed through cleanly.
 			if n == 1 && buf[0] == 0x1d {
 				fmt.Printf("\r\n[*] Detaching from session %d...\r\n", s.ID)
+				fmt.Printf("[!] Returning to Necromancy main menu\r\n")
 				done <- true
 				return
 			}
@@ -79,6 +84,7 @@ func Interact(s *Session) {
 			// Check for F12: \x1b[24~
 			if n >= 5 && buf[0] == 0x1b && buf[1] == '[' && buf[2] == '2' && buf[3] == '4' && buf[4] == '~' {
 				fmt.Printf("\r\n[*] Detaching from session %d...\r\n", s.ID)
+				fmt.Printf("[!] Returning to Necromancy main menu\r\n")
 				done <- true
 				return
 			}
