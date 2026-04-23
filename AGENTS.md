@@ -57,22 +57,12 @@ necromancy/
 - Hex colors → Terminal 256-color palette
 - Fallback to basic colors for compatibility
 
-### Banner Functions
-- `getBannerFromFile()`: Reads and parses ascii.txt
-- `parseBBCodeForTview()`: Converts BBCode to tview format
-- `printColoredBanner()`: Displays banner with colors
-
 ## 🌍 Multi-Platform Support
 
 ### Platform Matrix
 - **Linux**: amd64, arm64
 - **macOS**: amd64 (Intel), arm64 (Apple Silicon)
 - **Windows**: amd64
-
-### Build Constraints
-- `signal_unix.go`: Unix-specific signal handling
-- `signal_windows.go`: Windows compatibility layer
-- `build-multi-platform.sh`: Cross-platform build script
 
 ## 🚀 Command Line Interface
 
@@ -132,35 +122,6 @@ graph TD
     E --> F[Update Payloads]
 ```
 
-## 🛠️ Utility Functions (`utils/`)
-
-### Size Formatting
-```go
-size := NewSize(1024*1024) // 1MB
-fmt.Println(size.String()) // "1.0 MB"
-```
-
-### Table Formatting
-```go
-table := NewTable([]string{"Name", "Size", "Type"})
-table.AddRow([]string{"file.txt", "1.2 MB", "text"})
-fmt.Println(table.String())
-```
-
-### Progress Bar
-```go
-pb := NewProgressBar(100, "Downloading", 50)
-pb.Update(50)
-fmt.Println(pb.String()) // "Downloading: [=====     ] 50.0%"
-```
-
-### Color Utilities
-```go
-fmt.Println(Red("Error message"))
-fmt.Println(Green("Success message"))
-fmt.Println(Blue("Info message"))
-```
-
 ## 🐛 Common Issues & Solutions
 
 ### Build Issues
@@ -173,34 +134,11 @@ fmt.Println(Blue("Info message"))
 - **Sessions not connecting**: Verify network configuration
 - **Modules not loading**: Check module registration
 
-### UI Issues
-- **Terminal size**: Implement SIGWINCH handling
-- **Color support**: Use 256-color palette
-- **Keyboard shortcuts**: Verify tcell compatibility
-
-## 📊 Testing Guidelines
-
-### Unit Testing
-- Test individual modules
-- Verify session management
-- Check UI components
-
-### Integration Testing
-- Test full workflow
-- Verify cross-platform compatibility
-- Check module execution
-
-### Manual Testing
-- Test with real shells
-- Verify file transfers
-- Check network operations
-
 ## 📝 Code Style Guidelines
 
 ### Go Conventions
 - Follow standard Go formatting
 - Use meaningful variable names
-- Add appropriate comments
 - Handle errors properly
 
 ### Module Development
@@ -209,36 +147,12 @@ fmt.Println(Blue("Info message"))
 - Include error handling
 - Test thoroughly
 
-### UI Development
-- Maintain consistency
-- Use keyboard shortcuts
-- Provide visual feedback
-- Handle edge cases
-
 ## 🔄 Version Control
 
 ### Current Version
 - **Version**: 1.2.0
 - **Repository**: https://github.com/Aryma-f4/necromancy
 - **License**: MIT
-
-### Release Process
-1. Update version numbers
-2. Test all platforms
-3. Create GitHub release
-4. Upload binaries
-5. Update documentation
-
-## 📚 Additional Resources
-
-### Documentation
-- [README.md](README.md) - User documentation
-- [ENHANCEMENT_SUMMARY.md](ENHANCEMENT_SUMMARY.md) - Development summary
-
-### External Links
-- [GitHub Repository](https://github.com/Aryma-f4/necromancy)
-- [Go Documentation](https://golang.org/doc/)
-- [tview Documentation](https://github.com/rivo/tview)
 
 ---
 

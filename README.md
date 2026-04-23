@@ -26,7 +26,6 @@
 - **🌐 HTTP File Server** - Built-in file serving capability for quick transfers
 - **📤 Upload/Download** - Secure file transfer with simple commands
 - **💾 In-Memory Execution** - Run scripts without touching disk
-- **🔄 Port Forwarding** - Local port forwarding capabilities
 
 ### 🎯 Post-Exploitation Arsenal
 - **🔍 PEASS Suite** - LinPEAS and WinPEAS integration for comprehensive enumeration
@@ -34,18 +33,58 @@
 - **📋 LSE (Linux Smart Enumeration)** - Advanced Linux enumeration techniques
 - **🥔 Potato Exploits** - Windows privilege escalation methods
 - **🚇 Tunneling Tools** - Chisel, Ligolo, Ngrok integration for pivoting
-- **🎯 Meterpreter Integration** - Upgrade to Metasploit sessions
-- **🧹 Cleanup Module** - Remove tracks and artifacts from targets
-- **🦹 Traitor** - Automated Linux privilege escalation
-- **🔓 UAC Bypass** - Windows UAC bypass techniques
-- **🕰️ Panix** - Linux persistence via systemd
-- **🧠 Process Memory Dump** - Linux memory analysis capabilities
 
 ### 🎨 User Experience
 - **📺 Tview Dashboard** - Modern terminal-based UI with intuitive navigation
 - **📚 Module Browser** - Easy access to all post-exploitation modules
 - **📊 Session List** - Visual session management with detailed information
 - **🚀 Payload Generator** - Built-in reverse shell payloads for quick deployment
+
+## 📊 Use Cases
+
+### Basic Reverse Shell Workflow
+```mermaid
+graph TD
+    A[Start Necromancy] --> B[Configure Listener]
+    B --> C[Generate Payloads]
+    C --> D[Execute on Target]
+    D --> E[Receive Connection]
+    E --> F[Interactive Session]
+    F --> G[Execute Commands]
+    G --> H[File Operations]
+    H --> I[Module Execution]
+```
+
+### Session Management Flow
+```mermaid
+graph LR
+    A[Multiple Sessions] --> B[Session Browser]
+    B --> C[Select Session]
+    C --> D[Interactive Shell]
+    D --> E[File Manager]
+    D --> F[Module Execution]
+```
+
+### File Manager Operations
+```mermaid
+graph TD
+    A[File Manager] --> B[Navigate Directories]
+    B --> C[View Files]
+    C --> D[Download Files]
+    C --> E[Upload Files]
+    C --> F[Delete Files]
+    C --> G[Execute Files]
+```
+
+### Network Information Flow
+```mermaid
+graph TD
+    A[Network Info] --> B[Detect Local IP]
+    B --> C[Check Public IP]
+    C --> D[Get Location Data]
+    D --> E[Display Results]
+    E --> F[Update Payloads]
+```
 
 ## 🚀 Quick Start Guide
 
@@ -91,54 +130,6 @@ go build -o necromancy .
 
 # Or build for all platforms
 ./build-multi-platform.sh
-```
-
-## 📊 Use Cases
-
-### Basic Reverse Shell Workflow
-```mermaid
-graph TD
-    A[Start Necromancy] --> B[Configure Listener]
-    B --> C[Generate Payloads]
-    C --> D[Execute on Target]
-    D --> E[Receive Connection]
-    E --> F[Interactive Session]
-    F --> G[Execute Commands]
-    G --> H[File Operations]
-    H --> I[Module Execution]
-```
-
-### Session Management Flow
-```mermaid
-graph LR
-    A[Multiple Sessions] --> B[Session Browser]
-    B --> C[Select Session]
-    C --> D[Interactive Shell]
-    D --> E[File Manager]
-    D --> F[Module Execution]
-    D --> G[Network Tools]
-```
-
-### File Manager Operations
-```mermaid
-graph TD
-    A[File Manager] --> B[Navigate Directories]
-    B --> C[View Files]
-    C --> D[Download Files]
-    C --> E[Upload Files]
-    C --> F[Delete Files]
-    C --> G[Execute Files]
-    C --> H[Edit Files]
-```
-
-### Network Information Flow
-```mermaid
-graph TD
-    A[Network Info] --> B[Detect Local IP]
-    B --> C[Check Public IP]
-    C --> D[Get Location Data]
-    D --> E[Display Results]
-    E --> F[Update Payloads]
 ```
 
 ## 🎮 Interactive Commands
@@ -200,75 +191,6 @@ Options:
 ./necromancy -p 4444,4445,4446
 ```
 
-## 🛠️ Development
-
-### 📁 Project Structure
-```
-necromancy/
-├── core/           # Core functionality (sessions, networking)
-├── modules/        # Post-exploitation modules
-├── ui/            # Terminal user interface
-├── utils/         # Utility functions (formatting, colors)
-├── server/        # HTTP file server
-├── pty/           # PTY upgrade functionality
-├── ascii.txt      # Custom ASCII banner (optional)
-├── main.go        # Application entry point
-└── banner_color.go # ASCII banner color processing
-```
-
-### 🛠️ Building Custom Modules
-
-Create a new module in `modules/` directory:
-
-```go
-package modules
-
-import "github.com/Aryma-f4/necromancy/core"
-
-type MyModule struct{}
-
-func (m *MyModule) Name() string {
-    return "my_module"
-}
-
-func (m *MyModule) Description() string {
-    return "Description of my custom module"
-}
-
-func (m *MyModule) Execute(s *core.Session) error {
-    // Your module implementation
-    script := `echo "Running custom module"`
-    _, err := s.Write([]byte(script + "\n"))
-    return err
-}
-```
-
-Register in `modules/module.go`:
-```go
-mm.Register(&MyModule{})
-```
-
-### 🧪 Testing
-```bash
-# Run basic functionality test
-./necromancy --help
-
-# Test with sample listener
-./necromancy -p 9999 &
-# Connect with netcat: nc localhost 9999
-```
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### 📝 Quick Contribution Steps
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -281,13 +203,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Authorized Testing**: Only use on systems you own or have explicit permission to test
 - **Responsible Disclosure**: Report security vulnerabilities responsibly
 - **Compliance**: Follow applicable laws and regulations
-
-## 🙏 Acknowledgments
-
-- **Original Python Implementation** - Concepts and inspiration from the Python version
-- **Go Community** - Excellent libraries and frameworks
-- **Security Researchers** - Continuous contributions to the field
-- **Penetration Testers** - Real-world feedback and improvements
 
 ---
 
