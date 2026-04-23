@@ -24,19 +24,18 @@ func AutoUpgrade(s *core.Session) error {
 
 	// 2. Set terminal variables to match our local xterm
 	s.Write([]byte("export TERM=xterm-256color\n"))
-	
+
 	// 3. Mark session as PTY so the interactor knows to send SIGWINCH dimensions
 	s.Type = "PTY"
-	
+
 	// 4. Send initial terminal size
 	core.SendTerminalSize(s)
-	
-	// 5. Send 'stty raw -echo' on the REMOTE side to prevent double echoing
-	// (Local side is handled by term.MakeRaw in core.Interact)
-	s.Write([]byte("stty raw -echo\n"))
-	
-	// Clear screen to make it look clean
-	s.Write([]byte("clear\n"))
-	
+
+	// 5. Keep the remote shell in a readable, interactive state.
+	// Using raw -echo remotely hides typed commands and makes tools like PEASS
+	// render poorly when the operator attaches from the UI.
+	s.Write([]byte("stty sane echo 2>/dev/null || true\n"))
+	s.Write([]byte("reset 2>/dev/null || printf '\\033c'\n"))
+
 	return nil
 }
