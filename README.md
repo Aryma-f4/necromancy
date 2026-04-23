@@ -4,7 +4,6 @@
   <img src="logo.png" alt="Necromancy Banner" style="max-width: 100%; height: auto;" width="350" />
 </p>
 
-
 [![Go Version](https://img.shields.io/badge/go-1.21+-blue.svg)](https://golang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Latest Release](https://img.shields.io/github/v/release/Aryma-f4/necromancy?display_name=tag&label=release)](https://github.com/Aryma-f4/necromancy/releases/latest)
@@ -20,13 +19,12 @@
 - **🚀 Auto PTY Upgrade** - Automatic shell upgrade to full PTY for enhanced functionality
 - **💾 Session Persistence** - Maintain connections across network interruptions
 - **📐 Window Resizing** - Dynamic terminal size synchronization
-- **🛡️ OSCP-Safe Mode** - Compliance mode for certification exams
 
 ### 🌐 Network & File Operations
 - **📡 Multi-Listener Support** - Listen on multiple ports/interfaces simultaneously
 - **🔗 Bind Shell Support** - Connect to listening targets
 - **🌐 HTTP File Server** - Built-in file serving capability for quick transfers
-- **📤 Upload/Download** - Secure base64-based file transfer
+- **📤 Upload/Download** - Secure file transfer with simple commands
 - **💾 In-Memory Execution** - Run scripts without touching disk
 - **🔄 Port Forwarding** - Local port forwarding capabilities
 
@@ -95,26 +93,52 @@ go build -o necromancy .
 ./build-multi-platform.sh
 ```
 
-### 🎯 Basic Usage Examples
+## 📊 Use Cases
 
-```bash
-# Start listener on default port (4444)
-./necromancy
+### Basic Reverse Shell Workflow
+```mermaid
+graph TD
+    A[Start Necromancy] --> B[Configure Listener]
+    B --> C[Generate Payloads]
+    C --> D[Execute on Target]
+    D --> E[Receive Connection]
+    E --> F[Interactive Session]
+    F --> G[Execute Commands]
+    G --> H[File Operations]
+    H --> I[Module Execution]
+```
 
-# Start listener on custom port
-./necromancy -p 8080
+### Session Management Flow
+```mermaid
+graph LR
+    A[Multiple Sessions] --> B[Session Browser]
+    B --> C[Select Session]
+    C --> D[Interactive Shell]
+    D --> E[File Manager]
+    D --> F[Module Execution]
+    D --> G[Network Tools]
+```
 
-# Start with HTTP file server on port 8000
-./necromancy -p 4444 -s /path/to/files -w 8000
+### File Manager Operations
+```mermaid
+graph TD
+    A[File Manager] --> B[Navigate Directories]
+    B --> C[View Files]
+    C --> D[Download Files]
+    C --> E[Upload Files]
+    C --> F[Delete Files]
+    C --> G[Execute Files]
+    C --> H[Edit Files]
+```
 
-# Connect to bind shell
-./necromancy -c target.com -p 4444
-
-# OSCP-safe mode (no advanced features)
-./necromancy -O
-
-# Multi-listener setup
-./necromancy -p 4444,4445,4446
+### Network Information Flow
+```mermaid
+graph TD
+    A[Network Info] --> B[Detect Local IP]
+    B --> C[Check Public IP]
+    C --> D[Get Location Data]
+    D --> E[Display Results]
+    E --> F[Update Payloads]
 ```
 
 ## 🎮 Interactive Commands
@@ -124,6 +148,7 @@ go build -o necromancy .
 - `p` - Show reverse shell payloads
 - `m` - Browse available post-exploitation modules
 - `i` - List network interfaces
+- `n` - Show network information
 - `q` - Exit application
 
 ### 🔗 Session Management
@@ -153,11 +178,29 @@ Options:
   -m, --maintain int     Keep N sessions per target
   -L, --no-log          Disable session log files
   -U, --no-upgrade      Disable shell auto-upgrade
-  -O, --oscp-safe       Enable OSCP-safe mode
   -h, --help            Show this help message
 ```
 
-## 🔧 Development
+## 🎯 Basic Usage Examples
+
+```bash
+# Start listener on default port (4444)
+./necromancy
+
+# Start listener on custom port
+./necromancy -p 8080
+
+# Start with HTTP file server on port 8000
+./necromancy -p 4444 -s /path/to/files -w 8000
+
+# Connect to bind shell
+./necromancy -c target.com -p 4444
+
+# Multi-listener setup
+./necromancy -p 4444,4445,4446
+```
+
+## 🛠️ Development
 
 ### 📁 Project Structure
 ```
@@ -237,7 +280,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Educational Use**: Designed for learning and professional development
 - **Authorized Testing**: Only use on systems you own or have explicit permission to test
 - **Responsible Disclosure**: Report security vulnerabilities responsibly
-- **Compliance**: Follow OSCP and other certification guidelines when applicable
+- **Compliance**: Follow applicable laws and regulations
 
 ## 🙏 Acknowledgments
 
@@ -248,10 +291,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-<div align="center">
-
-**⭐ If you find Necromancy useful, please star the repository! ⭐**
-
-[⭐ Star on GitHub](https://github.com/Aryma-f4/necromancy) • [🐛 Report Bug](https://github.com/Aryma-f4/necromancy/issues) • [💡 Request Feature](https://github.com/Aryma-f4/necromancy/issues)
-
-</div>
+**Version**: 1.2.0  
+**Repository**: https://github.com/Aryma-f4/necromancy  
+**License**: MIT

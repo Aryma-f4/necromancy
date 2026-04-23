@@ -62,41 +62,6 @@ necromancy/
 - `parseBBCodeForTview()`: Converts BBCode to tview format
 - `printColoredBanner()`: Displays banner with colors
 
-## 🔧 Module Development
-
-### Module Interface
-```go
-type Module interface {
-    Name() string
-    Description() string
-    Execute(s *core.Session) error
-}
-```
-
-### Module Registration
-```go
-mm.Register(&MyModule{})
-```
-
-### Example Module Structure
-```go
-type MyModule struct{}
-
-func (m *MyModule) Name() string {
-    return "my_module"
-}
-
-func (m *MyModule) Description() string {
-    return "Module description"
-}
-
-func (m *MyModule) Execute(s *core.Session) error {
-    script := `echo "Running module"`
-    _, err := s.Write([]byte(script + "\n"))
-    return err
-}
-```
-
 ## 🌍 Multi-Platform Support
 
 ### Platform Matrix
@@ -108,12 +73,6 @@ func (m *MyModule) Execute(s *core.Session) error {
 - `signal_unix.go`: Unix-specific signal handling
 - `signal_windows.go`: Windows compatibility layer
 - `build-multi-platform.sh`: Cross-platform build script
-
-### CI/CD Pipeline
-- GitHub Actions workflow
-- Automatic binary releases
-- SHA256 checksums
-- Multi-architecture support
 
 ## 🚀 Command Line Interface
 
@@ -132,19 +91,46 @@ go build -ldflags="-s -w -X main.Version=v1.2.0 -X main.BuildDate=$(date -u +%Y-
 ### Basic Usage
 ```bash
 ./necromancy -p 4444                    # Single port
-./necromancy -p 4444,4445,4446           # Multiple ports
-./necromancy -c target.com -p 4444       # Connect to bind shell
+./necromancy -p 4444,4445,4446        # Multiple ports
+./necromancy -c target.com -p 4444    # Connect to bind shell
 ./necromancy -s /path/to/files -w 8000   # HTTP file server
 ```
 
-### Interactive Commands
-- `s`: View sessions
-- `p`: Show payloads
-- `m`: Browse modules
-- `i`: List interfaces
-- `interact <ID>`: Connect to session
-- `f`: Open file manager for selected session (btop-like UI)
-- `kill <ID>`: Terminate session
+## 📊 Use Cases
+
+### Basic Reverse Shell Workflow
+```mermaid
+graph TD
+    A[Start Necromancy] --> B[Configure Listener]
+    B --> C[Generate Payloads]
+    C --> D[Execute on Target]
+    D --> E[Receive Connection]
+    E --> F[Interactive Session]
+    F --> G[Execute Commands]
+    G --> H[File Operations]
+    H --> I[Module Execution]
+```
+
+### File Manager Operations
+```mermaid
+graph LR
+    A[File Manager] --> B[Navigate Directories]
+    B --> C[View Files]
+    C --> D[Download Files]
+    C --> E[Upload Files]
+    C --> F[Delete Files]
+    C --> G[Execute Files]
+```
+
+### Network Information Flow
+```mermaid
+graph TD
+    A[Network Info] --> B[Detect Local IP]
+    B --> C[Check Public IP]
+    C --> D[Get Location Data]
+    D --> E[Display Results]
+    E --> F[Update Payloads]
+```
 
 ## 🛠️ Utility Functions (`utils/`)
 
@@ -174,23 +160,6 @@ fmt.Println(Red("Error message"))
 fmt.Println(Green("Success message"))
 fmt.Println(Blue("Info message"))
 ```
-
-## 🔒 Security Considerations
-
-### OSCP-Safe Mode
-- Disables advanced features
-- Compliant with certification requirements
-- Maintains core functionality
-
-### Session Security
-- No hardcoded credentials
-- Secure file transfer methods
-- Proper session isolation
-
-### Module Safety
-- Input validation
-- Safe command execution
-- Error handling
 
 ## 🐛 Common Issues & Solutions
 
@@ -224,7 +193,7 @@ fmt.Println(Blue("Info message"))
 ### Manual Testing
 - Test with real shells
 - Verify file transfers
-- Check OSCP-safe mode
+- Check network operations
 
 ## 📝 Code Style Guidelines
 

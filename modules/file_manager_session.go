@@ -2,7 +2,6 @@ package modules
 
 import (
 	"bufio"
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -128,14 +127,14 @@ func (fmc *FileManagerCommands) GetFileListCommand(path string) string {
 
 // getWindowsFileListCommand generates Windows-specific file listing
 func (fmc *FileManagerCommands) getWindowsFileListCommand(path string) string {
-	// PowerShell command to get detailed file information
-	return fmt.Sprintf(`powershell -Command "try { $files = Get-ChildItem -Path '%s' -Force -ErrorAction Stop; foreach ($file in $files) { Write-Host \"$($file.Name)|$($file.Length)|$($file.Mode)|$($file.LastWriteTime.ToString('yyyy-MM-dd HH:mm'))|$($file.PSIsContainer)|$($file.Attributes -band [System.IO.FileAttributes]::ReparsePoint)\" } } catch { Write-Host \"ERROR: $($_.Exception.Message)\" }"`, path)
+	// Simple dir command for Windows
+	return fmt.Sprintf(`dir /a "%s" 2>nul`, path)
 }
 
 // getLinuxFileListCommand generates Linux-specific file listing
 func (fmc *FileManagerCommands) getLinuxFileListCommand(path string) string {
-	// Enhanced ls command with proper parsing
-	return fmt.Sprintf(`ls -la --time-style=long-iso "%s" 2>/dev/null | awk 'NR>1 {if (NF>=9) {name=""; for(i=9;i<=NF;i++) name=name (i>9?" ":"") $i; printf "%%s|%%s|%%s|%%s|%%s|%%s\n", name, $5, $1, $6" "$7, ($1 ~ /^d/ ? "true" : "false"), ($1 ~ /^l/ ? "true" : "false")}}'`, path)
+	// Simple ls command for Linux
+	return fmt.Sprintf(`ls -la "%s" 2>/dev/null`, path)
 }
 
 // getUnixFileListCommand generates generic Unix file listing
@@ -168,60 +167,100 @@ func (fmc *FileManagerCommands) ParseFileListOutput(output string) []FileInfo {
 	}
 }
 
-// parseWindowsFileList parses Windows PowerShell output
+// parseWindowsFileList parses Windows dir output
 func (fmc *FileManagerCommands) parseWindowsFileList(output string) []FileInfo {
 	var files []FileInfo
 
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "ERROR:") {
+		if line == "" || strings.HasPrefix(line, "Volume") || strings.HasPrefix(line, "Directory of") || strings.Contains(line, "<DIR>") && strings.Contains(line, "bytes") {
 			continue
 		}
 
-		parts := strings.Split(line, "|")
-		if len(parts) >= 6 {
-			size := int64(0)
-			fmt.Sscanf(parts[1], "%d", &size)
+		// Parse Windows dir output format
+		// Format: MM/DD/YYYY  HH:MM AM/PM    <DIR>          .
+		//         MM/DD/YYYY  HH:MM AM/PM             1,234 filename.ext
 
-			files = append(files, FileInfo{
-				Name:    parts[0],
-				Size:    size,
-				Mode:    parts[2],
-				ModTime: parts[3],
-				IsDir:   parts[4] == "true",
-				IsLink:  parts[5] == "True",
-			})
+		// Skip header lines and summary
+		if strings.Contains(line, "File(s)") || strings.Contains(line, "Dir(s)") {
+			continue
+		}
+
+		// Try to parse file/directory entry
+		parts := strings.Fields(line)
+		if len(parts) >= 4 {
+			date := parts[0]
+			time := parts[1]
+			ampm := ""
+			if len(parts) > 3 && (parts[2] == "AM" || parts[2] == "PM") {
+				ampm = parts[2]
+			}
+
+			sizeOrDir := parts[len(parts)-2]
+			name := parts[len(parts)-1]
+
+			file := FileInfo{
+				Name:    name,
+				ModTime: date + " " + time + ampm,
+				IsDir:   sizeOrDir == "<DIR>",
+				IsLink:  false,
+			}
+
+			if sizeOrDir != "<DIR>" {
+				// Parse file size (remove commas)
+				sizeStr := strings.ReplaceAll(sizeOrDir, ",", "")
+				fmt.Sscanf(sizeStr, "%d", &file.Size)
+			}
+
+			// Simple mode detection
+			if file.IsDir {
+				file.Mode = "drwxr-xr-x"
+			} else {
+				file.Mode = "-rw-r--r--"
+			}
+
+			files = append(files, file)
 		}
 	}
 
 	return files
 }
 
-// parseLinuxFileList parses Linux ls output
+// parseLinuxFileList parses Linux ls -la output
 func (fmc *FileManagerCommands) parseLinuxFileList(output string) []FileInfo {
 	var files []FileInfo
 
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line == "" {
+		if line == "" || strings.HasPrefix(line, "total ") {
 			continue
 		}
 
-		parts := strings.Split(line, "|")
-		if len(parts) >= 6 {
+		// Parse ls -la format: -rw-r--r-- 1 user group 1234 Jan 01 12:00 filename
+		parts := strings.Fields(line)
+		if len(parts) >= 9 {
+			mode := parts[0]
 			size := int64(0)
-			fmt.Sscanf(parts[1], "%d", &size)
+			fmt.Sscanf(parts[4], "%d", &size)
 
-			files = append(files, FileInfo{
-				Name:    parts[0],
+			// Build name from remaining parts (handle spaces in filenames)
+			name := strings.Join(parts[8:], " ")
+
+			// Build timestamp from parts 5,6,7
+			modTime := parts[5] + " " + parts[6] + " " + parts[7]
+
+			file := FileInfo{
+				Name:    name,
 				Size:    size,
-				Mode:    parts[2],
-				ModTime: parts[3],
-				IsDir:   parts[4] == "true",
-				IsLink:  parts[5] == "true",
-			})
+				Mode:    mode,
+				ModTime: modTime,
+				IsDir:   strings.HasPrefix(mode, "d"),
+				IsLink:  strings.HasPrefix(mode, "l"),
+			}
+
+			files = append(files, file)
 		}
 	}
 
@@ -240,9 +279,9 @@ func (fmc *FileManagerCommands) GetCurrentDirectory() (string, error) {
 
 	switch os {
 	case "windows":
-		cmd = `powershell -Command "(Get-Location).Path"`
+		cmd = `cd` // Simple cd command for Windows
 	default:
-		cmd = `pwd`
+		cmd = `pwd` // Simple pwd for Unix
 	}
 
 	output, err := fmc.session.ExecuteCommand(cmd, 3*time.Second)
@@ -268,34 +307,30 @@ func (fmc *FileManagerCommands) GetFileContent(filepath string) (string, error) 
 	return fmc.session.ExecuteCommand(cmd, 10*time.Second)
 }
 
-// DownloadFile downloads a file from the target (base64 encoded)
+// DownloadFile downloads a file from the target using simple commands
 func (fmc *FileManagerCommands) DownloadFile(remotePath, localPath string) error {
 	os := fmc.session.DetectedOS()
 	var cmd string
 
 	switch os {
 	case "windows":
-		cmd = fmt.Sprintf(`powershell -Command "[Convert]::ToBase64String([IO.File]::ReadAllBytes('%s'))"`, remotePath)
+		// Use simple type command for Windows
+		cmd = fmt.Sprintf(`type "%s"`, remotePath)
 	default:
-		cmd = fmt.Sprintf(`base64 "%s"`, remotePath)
+		// Use simple cat command for Unix
+		cmd = fmt.Sprintf(`cat "%s"`, remotePath)
 	}
 
 	output, err := fmc.session.ExecuteCommand(cmd, 30*time.Second)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read file: %v", err)
 	}
 
-	// Decode base64 output
-	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(output))
-	if err != nil {
-		return fmt.Errorf("failed to decode base64: %v", err)
-	}
-
-	// Write to local file
-	return ioutil.WriteFile(localPath, decoded, 0644)
+	// Write output directly to local file
+	return ioutil.WriteFile(localPath, []byte(output), 0644)
 }
 
-// UploadFile uploads a file to the target (base64 decode)
+// UploadFile uploads a file to the target using simple echo commands
 func (fmc *FileManagerCommands) UploadFile(localPath, remotePath string) error {
 	// Read local file
 	data, err := ioutil.ReadFile(localPath)
@@ -303,46 +338,31 @@ func (fmc *FileManagerCommands) UploadFile(localPath, remotePath string) error {
 		return fmt.Errorf("failed to read local file: %v", err)
 	}
 
-	// Encode to base64
-	encoded := base64.StdEncoding.EncodeToString(data)
+	// For small files, use simple echo command
+	// For larger files, we'll implement chunked upload
+	if len(data) < 1000 {
+		os := fmc.session.DetectedOS()
+		var cmd string
 
-	os := fmc.session.DetectedOS()
-	var cmd string
+		// Escape special characters for shell
+		content := string(data)
+		content = strings.ReplaceAll(content, `"`, `\"`)
+		content = strings.ReplaceAll(content, `'`, `\'`)
+		content = strings.ReplaceAll(content, `$`, `\$`)
 
-	switch os {
-	case "windows":
-		// Split into chunks for Windows PowerShell
-		chunkSize := 1000
-		var chunks []string
-		for i := 0; i < len(encoded); i += chunkSize {
-			end := i + chunkSize
-			if end > len(encoded) {
-				end = len(encoded)
-			}
-			chunks = append(chunks, encoded[i:end])
+		switch os {
+		case "windows":
+			cmd = fmt.Sprintf(`echo "%s" > "%s"`, content, remotePath)
+		default:
+			cmd = fmt.Sprintf(`echo '%s' > "%s"`, content, remotePath)
 		}
 
-		cmd = fmt.Sprintf(`powershell -Command "$data = ''; %s; [IO.File]::WriteAllBytes('%s', [Convert]::FromBase64String($data))"`,
-			buildPowerShellChunks(chunks), remotePath)
-	default:
-		cmd = fmt.Sprintf(`echo '%s' | base64 -d > "%s"`, encoded, remotePath)
+		_, err = fmc.session.ExecuteCommand(cmd, 10*time.Second)
+		return err
 	}
 
-	_, err = fmc.session.ExecuteCommand(cmd, 30*time.Second)
-	return err
-}
-
-// buildPowerShellChunks builds PowerShell command for large base64 data
-func buildPowerShellChunks(chunks []string) string {
-	var result strings.Builder
-	for i, chunk := range chunks {
-		if i == 0 {
-			result.WriteString(fmt.Sprintf(`$data = '%s'`, chunk))
-		} else {
-			result.WriteString(fmt.Sprintf(`; $data += '%s'`, chunk))
-		}
-	}
-	return result.String()
+	// For larger files, return error for now
+	return fmt.Errorf("file too large for simple upload (max 1KB), use alternative method")
 }
 
 // CreateDirectory creates a new directory

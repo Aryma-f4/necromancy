@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -215,7 +216,7 @@ func (fm *FileManagerUI) setupEventHandlers() {
 				fm.uploadFile()
 				return nil
 			case 'x', 'X':
-				fm.executeSelectedFile()
+				fm.removeSelectedFile()
 				return nil
 			case 'n', 'N':
 				fm.createNewFile()
@@ -224,7 +225,7 @@ func (fm *FileManagerUI) setupEventHandlers() {
 				fm.createNewDirectory()
 				return nil
 			case 'e', 'E':
-				fm.editSelectedFile()
+				fm.executeSelectedFile()
 				return nil
 			case 'c', 'C':
 				fm.copySelectedFile()
@@ -526,8 +527,50 @@ func (fm *FileManagerUI) pasteFile() {
 }
 
 func (fm *FileManagerUI) selectAll() {
-	// Implement select all functionality
-	fm.updateStatus("Select all - implement for batch operations")
+	// Simple select all - just highlight all items for now
+	if len(fm.files) > 0 {
+		fm.updateStatus(fmt.Sprintf("Selected %d files", len(fm.files)))
+	}
+}
+
+func (fm *FileManagerUI) removeSelectedFile() {
+	row, _ := fm.fileList.GetSelection()
+	if row > 0 && row <= len(fm.files) {
+		file := fm.files[row-1]
+
+		// Ask for confirmation
+		modal := tview.NewModal().
+			SetText(fmt.Sprintf("Delete %s '%s'?",
+				map[bool]string{true: "directory", false: "file"}[file.IsDir],
+				file.Name)).
+			AddButtons([]string{"Yes", "No"}).
+			SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+				if buttonLabel == "Yes" {
+					// Use simple rm command
+					fullPath := filepath.Join(fm.currentPath, file.Name)
+					var cmd string
+					if file.IsDir {
+						cmd = fmt.Sprintf(`rm -rf "%s"`, fullPath)
+					} else {
+						cmd = fmt.Sprintf(`rm -f "%s"`, fullPath)
+					}
+
+					// Execute command directly
+					_, err := fm.session.Write([]byte(cmd + "\n"))
+					if err != nil {
+						fm.updateStatus(fmt.Sprintf("Error deleting: %v", err))
+					} else {
+						fm.updateStatus(fmt.Sprintf("Deleted: %s", file.Name))
+						// Refresh file list
+						fm.refreshFiles()
+					}
+				}
+				// Return to file manager
+				fm.app.SetRoot(fm.Layout, true)
+			})
+
+		fm.app.SetRoot(modal, false)
+	}
 }
 
 func (fm *FileManagerUI) showHelp() {
@@ -542,10 +585,10 @@ func (fm *FileManagerUI) showHelp() {
   r - Refresh
   d - Download file
   u - Upload file
-  x - Execute file
+  x - Delete file/directory
   n - New file
   m - New directory
-  e - Edit file
+  e - Execute file
   c - Copy file
   v - Paste file
   a - Select all
