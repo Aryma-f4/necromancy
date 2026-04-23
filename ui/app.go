@@ -178,7 +178,7 @@ func newBannerView() *tview.TextView {
 	banner.SetBackgroundColor(tcell.ColorBlack)
 	banner.SetWrap(false)
 	banner.SetWordWrap(false)
-	banner.SetText(getBannerFromFile() + "\n[gray] v1.0.0 - Advanced Shell Manager [-]\n[gray] https://github.com/Aryma-f4/necromancy [-]\n")
+	banner.SetText(getBannerFromFile() + "\n[gray] v1.1 Stable Release - Advanced Shell Manager [-]\n[gray] https://github.com/Aryma-f4/necromancy [-]\n")
 
 	return banner
 }
@@ -219,7 +219,7 @@ func (a *App) Setup() {
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter)
 	header.SetBackgroundColor(tcell.ColorBlack)
-	header.SetText("[yellow]Necromancy Main Menu[white]  [gray]v1.0[-]\n[green]Interactive reverse shell manager[-]")
+	header.SetText("[yellow]Necromancy Main Menu[white]  [gray]v1.1 Stable Release[-]\n[green]Interactive reverse shell manager[-]")
 
 	a.menuList = tview.NewList().
 		AddItem("View Sessions", "List all active reverse shells", 's', a.showSessionsList).
@@ -230,7 +230,7 @@ func (a *App) Setup() {
 			a.tviewApp.Stop()
 		})
 
-	a.menuList.SetBorder(true).SetTitle(" Necromancy Main Menu v1.0 ")
+	a.menuList.SetBorder(true).SetTitle(" Necromancy Main Menu v1.1 Stable Release ")
 	a.menuList.SetBackgroundColor(tcell.ColorBlack)
 
 	// Set highlight colors for better visibility

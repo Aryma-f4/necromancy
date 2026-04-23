@@ -123,10 +123,10 @@ func (m *MyModule) Execute(s *core.Session) error {
 go install github.com/Aryma-f4/necromancy@latest
 
 # Install specific version
-go install github.com/Aryma-f4/necromancy@v1.0.0
+go install github.com/Aryma-f4/necromancy@v1.1.0
 
 # Build with version info
-go build -ldflags="-s -w -X main.Version=1.0.0 -X main.BuildDate=$(date -u +%Y-%m-%d)" -o necromancy .
+go build -ldflags="-s -w -X main.Version=1.1.0 -X main.BuildDate=$(date -u +%Y-%m-%d)" -o necromancy .
 ```
 
 ### Basic Usage
@@ -248,7 +248,7 @@ fmt.Println(Blue("Info message"))
 ## 🔄 Version Control
 
 ### Current Version
-- **Version**: 1.0.0
+- **Version**: 1.1.0
 - **Repository**: https://github.com/Aryma-f4/necromancy
 - **License**: MIT
 
@@ -273,5 +273,5 @@ fmt.Println(Blue("Info message"))
 ---
 
 **Last Updated**: 2026-04-23  
-**Version**: 1.0.0  
+**Version**: 1.1.0  
 **Repository**: https://github.com/Aryma-f4/necromancy

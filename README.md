@@ -79,7 +79,7 @@ chmod +x necromancy-macos-arm64
 go install github.com/Aryma-f4/necromancy@latest
 
 # Or install specific version
-go install github.com/Aryma-f4/necromancy@v1.0.0
+go install github.com/Aryma-f4/necromancy@v1.1.0
 ```
 
 #### Option 3: Build from Source
