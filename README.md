@@ -1,4 +1,6 @@
-# 🧙‍♂️ Necromancy - Advanced Shell Manager
+# 🧙‍♂️ Necromancy - Advanced Post-Exploitation Shell Manager
+
+![Necromancy Banner](logo.png)
 
 [![Release](https://github.com/Aryma-f4/necromancy/workflows/Release/badge.svg)](https://github.com/Aryma-f4/necromancy/actions)
 [![Go Version](https://img.shields.io/badge/go-1.21+-blue.svg)](https://golang.org/)
@@ -152,19 +154,6 @@ Options:
   -O, --oscp-safe       Enable OSCP-safe mode
   -h, --help            Show this help message
 ```
-
-## 🎨 Custom ASCII Banner
-
-Necromancy supports custom ASCII banners with BBCode color formatting. Create an `ascii.txt` file in the same directory:
-
-```bbcode
-[color=#FF0000]┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓[/color]
-[color=#00FF00]┃            Necromancy - Advanced Shell Manager       ┃[/color]
-[color=#0000FF]┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛[/color]
-[color=#808080]    Version 1.0.0 | https://github.com/Aryma-f4/necromancy[/color]
-```
-
-Colors are automatically converted to terminal ANSI colors for maximum compatibility.
 
 ## 🔧 Development
 

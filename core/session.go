@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -49,6 +50,57 @@ func NewSession(id int, conn net.Conn) *Session {
 	return s
 }
 
+func guessOSFromText(text string) string {
+	lower := strings.ToLower(text)
+
+	windowsIndicators := []string{
+		"microsoft windows",
+		"windows version",
+		"c:\\",
+		"\\users\\",
+		"powershell",
+		"cmd.exe",
+	}
+	for _, indicator := range windowsIndicators {
+		if strings.Contains(lower, indicator) {
+			return "windows"
+		}
+	}
+
+	linuxIndicators := []string{
+		"/bin/",
+		"/usr/",
+		"/tmp/",
+		"uid=",
+		"gid=",
+		"linux",
+		"bash",
+		"sh:",
+	}
+	for _, indicator := range linuxIndicators {
+		if strings.Contains(lower, indicator) {
+			return "linux"
+		}
+	}
+
+	return ""
+}
+
+func (s *Session) DetectedOS() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.OS == "" {
+		s.OS = guessOSFromText(s.History.String())
+	}
+
+	if s.OS == "" {
+		return "unknown"
+	}
+
+	return s.OS
+}
+
 func (s *Session) readLoop() {
 	buf := make([]byte, 4096)
 	for {
@@ -75,6 +127,9 @@ func (s *Session) readLoop() {
 
 		s.mu.Lock()
 		s.History.Write(data)
+		if s.OS == "" {
+			s.OS = guessOSFromText(string(data))
+		}
 		if s.LogFile != nil {
 			s.LogFile.Write(data)
 		}
