@@ -102,7 +102,7 @@ func (m *FileManagerModule) Execute(s *core.Session) error {
 	// Create layout with banner at top
 	mainLayout := tview.NewFlex().SetDirection(tview.FlexRow)
 	mainLayout.AddItem(bannerView, 8, 0, false)
-	mainLayout.AddItem(fileManager.layout, 0, 1, true)
+	mainLayout.AddItem(fileManager.Layout, 0, 1, true)
 
 	if err := app.SetRoot(mainLayout, true).EnableMouse(true).Run(); err != nil {
 		return fmt.Errorf("file manager UI error: %v", err)
@@ -115,7 +115,7 @@ func (m *FileManagerModule) Execute(s *core.Session) error {
 type FileManagerUI struct {
 	session       *FileManagerSession
 	app           *tview.Application
-	layout        *tview.Flex
+	Layout        *tview.Flex // Exported layout for external use
 	fileList      *tview.Table
 	pathInput     *tview.InputField
 	statusBar     *tview.TextView
@@ -163,7 +163,7 @@ func (fm *FileManagerUI) setupUI() {
 		SetTextAlign(tview.AlignLeft)
 
 	// Set up layout - similar to btop layout
-	fm.layout = tview.NewFlex().SetDirection(tview.FlexRow)
+	fm.Layout = tview.NewFlex().SetDirection(tview.FlexRow)
 
 	// Top section: path input and file list
 	topSection := tview.NewFlex().SetDirection(tview.FlexRow)
@@ -171,8 +171,8 @@ func (fm *FileManagerUI) setupUI() {
 	topSection.AddItem(fm.fileList, 0, 1, true)
 
 	// Main layout
-	fm.layout.AddItem(topSection, 0, 1, true)
-	fm.layout.AddItem(fm.statusBar, 1, 0, false)
+	fm.Layout.AddItem(topSection, 0, 1, true)
+	fm.Layout.AddItem(fm.statusBar, 1, 0, false)
 
 	// Set up event handlers
 	fm.setupEventHandlers()
@@ -557,7 +557,7 @@ Press any key to close help...`
 		SetText(helpView.GetText(false)).
 		AddButtons([]string{"Close"}).
 		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-			fm.app.SetRoot(fm.layout, true)
+			fm.app.SetRoot(fm.Layout, true)
 		})
 
 	fm.app.SetRoot(helpModal, false)

@@ -324,6 +324,9 @@ func (a *App) showSessionActions(id int) {
 		AddItem("Interact", "Connect to the shell", 'i', func() {
 			a.openSessionTerminal(id)
 		}).
+		AddItem("File Manager", "Browse and manage files on target (btop-like UI)", 'f', func() {
+			a.openFileManager(id)
+		}).
 		AddItem("Cancel Commands", "Send interrupt and stop running session commands", 'c', func() {
 			session, exists := a.sessions.Get(id)
 			if !exists {
@@ -518,6 +521,46 @@ func (a *App) openSessionTerminal(id int) {
 
 	// Return back to session list after Detach (F12)
 	a.showSessionsList()
+}
+
+func (a *App) openFileManager(id int) {
+	session, exists := a.sessions.Get(id)
+	if !exists {
+		return
+	}
+
+	// Launch file manager UI
+	app := tview.NewApplication()
+	fileManager := modules.NewFileManagerUI(modules.NewFileManagerSession(session), app)
+
+	// Create layout with banner
+	bannerView := tview.NewTextView().
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignCenter).
+		SetText(getBannerFromFile() + "\n[gray]v1.1 Stable Release - File Manager[-]\n[blue]Interactive File Management for Target Systems[-]")
+
+	bannerView.SetBackgroundColor(tcell.ColorBlack)
+
+	mainLayout := tview.NewFlex().SetDirection(tview.FlexRow)
+	mainLayout.AddItem(bannerView, 8, 0, false)
+	mainLayout.AddItem(fileManager.Layout, 0, 1, true)
+
+	// Set up input capture to handle escape key
+	mainLayout.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape {
+			app.Stop()
+			return nil
+		}
+		return event
+	})
+
+	// Run file manager
+	if err := app.SetRoot(mainLayout, true).EnableMouse(true).Run(); err != nil {
+		log.Printf("File manager UI error: %v", err)
+	}
+
+	// Return to session actions after file manager closes
+	a.showSessionActions(id)
 }
 
 func (a *App) showInterfaces() {

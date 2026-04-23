@@ -143,6 +143,7 @@ go build -ldflags="-s -w -X main.Version=1.1.0 -X main.BuildDate=$(date -u +%Y-%
 - `m`: Browse modules
 - `i`: List interfaces
 - `interact <ID>`: Connect to session
+- `f`: Open file manager for selected session (btop-like UI)
 - `kill <ID>`: Terminate session
 
 ## 🛠️ Utility Functions (`utils/`)

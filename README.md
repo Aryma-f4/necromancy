@@ -128,6 +128,7 @@ go build -o necromancy .
 
 ### 🔗 Session Management
 - `interact <ID>` - Connect to specific session
+- `f` - Open file manager for selected session (btop-like UI)
 - `kill <ID>` - Terminate specific session
 - `kill *` - Terminate all sessions
 - `upload <local> <remote>` - Upload file to target
