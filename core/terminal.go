@@ -10,12 +10,12 @@ import (
 
 // Interact drops the current process into a raw terminal mode, connecting
 // stdin/stdout directly to the Session's LiveOutput channel. It traps F12
-// (\x1b[24~) to detach and return to the UI.
+// (\x1b[24~) or Ctrl-] to detach and return to the UI.
 func Interact(s *Session) {
 	s.Attach()
 	defer s.Detach()
 
-	fmt.Printf("\r\n[+] Interacting with Session %d (%s) - Type 'exit' to close, or press F12 to detach\r\n", s.ID, s.RemoteAddr)
+	fmt.Printf("\r\n[+] Interacting with Session %d (%s) - Type 'exit' to close, press F12, or Ctrl-] to detach\r\n", s.ID, s.RemoteAddr)
 
 	// Dump history first
 	s.mu.Lock()
@@ -65,6 +65,13 @@ func Interact(s *Session) {
 		for {
 			n, err := os.Stdin.Read(buf)
 			if err != nil {
+				done <- true
+				return
+			}
+
+			// Fallback detach key for terminals where F12 is not passed through cleanly.
+			if n == 1 && buf[0] == 0x1d {
+				fmt.Printf("\r\n[*] Detaching from session %d...\r\n", s.ID)
 				done <- true
 				return
 			}

@@ -144,7 +144,7 @@ func (sm *SessionManager) Remove(id int) {
 func (sm *SessionManager) GetAll() []*Session {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	var all []*Session
 	for _, s := range sm.Sessions {
 		if s.Active {
@@ -168,11 +168,10 @@ func ConnectBind(target string, sm *SessionManager, onNewSession func(*Session))
 		onNewSession(s)
 	}
 }
-func StartListener(port string, sm *SessionManager, onNewSession func(*Session)) {
-	addr := fmt.Sprintf("0.0.0.0:%s", port)
+func StartListener(addr string, sm *SessionManager, onNewSession func(*Session)) {
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("Error listening: %v", err)
+		log.Fatalf("Error listening on %s: %v", addr, err)
 	}
 	defer l.Close()
 
@@ -182,6 +181,13 @@ func StartListener(port string, sm *SessionManager, onNewSession func(*Session))
 			time.Sleep(1 * time.Second)
 			continue
 		}
+
+		if GlobalConfig != nil && GlobalConfig.SingleSession && len(sm.GetAll()) >= 1 {
+			log.Printf("Rejecting connection from %s because single-session mode is enabled\n", conn.RemoteAddr())
+			conn.Close()
+			continue
+		}
+
 		s := sm.Add(conn)
 		if onNewSession != nil {
 			onNewSession(s)

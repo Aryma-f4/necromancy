@@ -7,14 +7,16 @@ import (
 )
 
 type FileServer struct {
-	Addr string
-	Dir  string
+	Addr   string
+	Dir    string
+	Prefix string
 }
 
-func NewFileServer(addr, dir string) *FileServer {
+func NewFileServer(addr, dir, prefix string) *FileServer {
 	return &FileServer{
-		Addr: addr,
-		Dir:  dir,
+		Addr:   addr,
+		Dir:    dir,
+		Prefix: prefix,
 	}
 }
 
@@ -26,9 +28,24 @@ func (fs *FileServer) Start() {
 
 	fileHandler := http.FileServer(http.Dir(absPath))
 	mux := http.NewServeMux()
-	mux.Handle("/", fileHandler)
+	prefix := fs.Prefix
+	if prefix == "" {
+		prefix = "/"
+	}
+	if prefix[0] != '/' {
+		prefix = "/" + prefix
+	}
+	if prefix != "/" && prefix[len(prefix)-1] != '/' {
+		prefix += "/"
+	}
 
-	log.Printf("Starting HTTP File Server on %s, serving %s\n", fs.Addr, absPath)
+	if prefix == "/" {
+		mux.Handle("/", fileHandler)
+	} else {
+		mux.Handle(prefix, http.StripPrefix(prefix, fileHandler))
+	}
+
+	log.Printf("Starting HTTP File Server on %s%s, serving %s\n", fs.Addr, prefix, absPath)
 	if err := http.ListenAndServe(fs.Addr, mux); err != nil {
 		log.Fatalf("File server failed: %v", err)
 	}

