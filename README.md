@@ -1,11 +1,13 @@
 # 🧙‍♂️ Necromancy - Advanced Post-Exploitation Shell Manager
 
-![Necromancy Banner](logo.png)
+<p align="center">
+  <img src="logo.png" alt="Necromancy Banner" style="max-width: 100%; height: auto;" width="350" />
+</p>
 
-[![Release](https://github.com/Aryma-f4/necromancy/workflows/Release/badge.svg)](https://github.com/Aryma-f4/necromancy/actions)
+
 [![Go Version](https://img.shields.io/badge/go-1.21+-blue.svg)](https://golang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-brightgreen.svg)](https://github.com/Aryma-f4/necromancy/releases)
+[![Latest Release](https://img.shields.io/github/v/release/Aryma-f4/necromancy?display_name=tag&label=release)](https://github.com/Aryma-f4/necromancy/releases/latest)
 
 **Necromancy** is a powerful post-exploitation shell manager written in Go, designed for penetration testers and red team operators. It provides comprehensive reverse shell management, advanced post-exploitation modules, and an intuitive terminal-based interface.
 
@@ -43,7 +45,6 @@
 
 ### 🎨 User Experience
 - **📺 Tview Dashboard** - Modern terminal-based UI with intuitive navigation
-- **🎨 ASCII Banner** - Customizable colored banner support (BBCode format)
 - **📚 Module Browser** - Easy access to all post-exploitation modules
 - **📊 Session List** - Visual session management with detailed information
 - **🚀 Payload Generator** - Built-in reverse shell payloads for quick deployment
