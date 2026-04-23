@@ -37,6 +37,8 @@ func NewModuleManager() *ModuleManager {
 	mm.Register(&PanixModule{})
 	mm.Register(&LinuxProcmemdumpModule{})
 	mm.Register(&FileManagerModule{})
+	mm.Register(&RedSunModule{})
+	mm.Register(&BlueHammerModule{})
 	
 	return mm
 }

@@ -65,6 +65,8 @@
 - **🔓 UAC Bypass** - Windows UAC bypass techniques
 - **🕰️ Panix** - Linux persistence via systemd
 - **🧠 Process Memory Dump** - Linux memory analysis capabilities
+- **🌞 RedSun PEAS** - Windows vulnerability enumeration from RedSun repository
+- **🔨 BlueHammer** - Windows exploitation toolkit from BlueHammer repository
 
 ### 🎨 User Experience
 - **📺 Tview Dashboard** - Modern terminal-based UI with intuitive navigation
@@ -139,44 +141,134 @@ graph LR
     style F fill:#E91E63,stroke:#C2185B,color:#fff
 ```
 
-### File Manager Operations
+### Module Execution (Detailed Breakdown)
 ```mermaid
 graph TD
-    subgraph "User Interface"
-        A[👤 User] -->|"Opens"| B[📁 File Manager]
-    end
-    
-    subgraph "Navigation Operations"
-        B -->|"Browse"| C[📂 Directory Navigation]
-        B -->|"View"| D[📋 File Listing]
-    end
-    
-    subgraph "File Operations"
-        D -->|"Select"| E[📄 File Selection]
-        E -->|"Actions"| F[⚙️ File Actions]
+    subgraph "🎯 Enumeration Modules"
+        A1[� PEASS Auto] -->|"Auto-detects OS"| A2[🐧 LinPEAS]
+        A1 -->|"Auto-detects OS"| A3[🪟 WinPEAS]
+        A2 -->|"Enumerates"| A4[🔑 Linux Privileges]
+        A3 -->|"Enumerates"| A5[� Windows Privileges]
         
-        F -->|"Download"| G[⬇️ Download File]
-        F -->|"Upload"| H[⬆️ Upload File]
-        F -->|"Delete"| I[🗑️ Delete File]
-        F -->|"Execute"| J[▶️ Execute File]
-        F -->|"Edit"| K[✏️ Edit File]
-        F -->|"Copy"| L[📋 Copy File]
+        A6[📋 LSE] -->|"Smart enumeration"| A7[🐧 Linux Security]
+        A8[⚡ Exploit Suggester] -->|"Analyzes kernel"| A9[🎯 Exploit Recommendations]
     end
     
-    subgraph "System Operations"
-        M[🆕 Create New] --> B
-        N[📊 Properties] --> E
-        O[🔍 Search] --> D
+    subgraph "🔑 Privilege Escalation Modules"
+        B1[🥔 Potato Exploits] -->|"Tests"| B2[🍠 RottenPotato]
+        B1 -->|"Tests"| B3[🥤 JuicyPotato]
+        B1 -->|"Tests"| B4[🍯 SweetPotato]
+        
+        B5[🦹 Traitor] -->|"Automated exploitation"| B6[� Linux Escalation]
+        B7[🔓 UAC Bypass] -->|"Bypasses"| B8[🪟 Windows UAC]
     end
     
-    style A fill:#4CAF50,stroke:#2E7D32,color:#fff
-    style B fill:#2196F3,stroke:#1565C0,color:#fff
-    style F fill:#FF9800,stroke:#F57C00,color:#000
-    style G fill:#8BC34A,stroke:#558B2F,color:#fff
-    style H fill:#8BC34A,stroke:#558B2F,color:#fff
-    style I fill:#F44336,stroke:#C62828,color:#fff
-    style J fill:#9C27B0,stroke:#6A1B9A,color:#fff
+    subgraph "🚇 Tunneling & Pivoting Modules"
+        C1[🚇 Chisel] -->|"Creates tunnels"| C2[� TCP/UDP Forwarding]
+        C3[📡 Ligolo] -->|"Advanced proxy"| C4[🌐 Network Pivoting]
+        C5[🌍 Ngrok] -->|"External access"| C6[☁️ Secure Tunneling]
+    end
+    
+    subgraph "🚀 Session & Upgrade Modules"
+        D1[🎯 Meterpreter] -->|"Upgrades to"| D2[� Metasploit Session]
+        D3[🔄 Auto PTY] -->|"Automatic upgrade"| D4[🖥️ Full TTY Shell]
+    end
+    
+    subgraph "🧹 Cleanup & Persistence Modules"
+        E1[🧹 Cleanup] -->|"Removes"| E2[📝 Logs & History]
+        E3[🕰️ Panix] -->|"Creates"| E4[⚙️ Systemd Persistence]
+        E5[💾 Session Persistence] -->|"Maintains"| E6[🔗 Connection Stability]
+    end
+    
+    subgraph "🧠 Forensics & Analysis Modules"
+        F1[🧠 Memory Dump] -->|"Analyzes"| F2[💭 Process Memory]
+        F3[📊 System Info] -->|"Collects"| F4[🔍 Target Intelligence]
+    end
+    
+    subgraph "🌞 RedSun & 🔨 BlueHammer Modules"
+        I1[🌞 RedSun PEAS] -->|"Enumerates"| I2[🪟 Windows Vulnerabilities]
+        I3[🔨 BlueHammer] -->|"Exploits"| I4[🪟 Windows CVEs]
+        I5[🔥 Advanced Exploits] -->|"Tests"| I6[🛡️ Windows Defenses]
+    end
+    
+    subgraph "📁 File Management Modules"
+        G1[📁 File Manager] -->|"Provides"| G2[📂 Directory Operations]
+        G1 -->|"Provides"| G3[📄 File Operations]
+        G1 -->|"Provides"| G4[⬆️⬇️ Transfer Operations]
+    end
+    
+    subgraph "🌐 Network Information Modules"
+        H1[� Network Info] -->|"Detects"| H2[🏠 Local IP]
+        H1 -->|"Detects"| H3[🌍 Public IP]
+        H1 -->|"Updates"| H4[� Payload Templates]
+        H4 -->|"Replaces YOUR_IP with"| H5[🎯 Actual IP Address]
+    end
+    
+    style A1 fill:#FF9800,stroke:#F57C00,color:#000
+    style B1 fill:#F44336,stroke:#C62828,color:#fff
+    style C1 fill:#9C27B0,stroke:#6A1B9A,color:#fff
+    style D1 fill:#2196F3,stroke:#1565C0,color:#fff
+    style E1 fill:#795548,stroke:#4E342E,color:#fff
+    style F1 fill:#607D8B,stroke:#37474F,color:#fff
+    style G1 fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style H1 fill:#00BCD4,stroke:#00838F,color:#fff
 ```
+
+### 📋 Detailed Module Breakdown
+
+#### 🎯 **Enumeration Modules**
+- **🔍 PEASS Auto**: Automatically detects target OS and runs appropriate PEASS tool
+- **🐧 LinPEAS**: Comprehensive Linux privilege escalation enumeration
+- **🪟 WinPEAS**: Windows privilege escalation enumeration
+- **📋 LSE**: Linux Smart Enumeration for detailed security analysis
+- **⚡ Exploit Suggester**: Analyzes kernel version and suggests applicable exploits
+
+#### 🔑 **Privilege Escalation Modules**
+- **🥔 Potato Exploits**: Tests Windows privilege escalation techniques:
+  - **🍠 RottenPotato**: Named pipe exploitation
+  - **🥤 JuicyPotato**: DCOM exploitation with custom CLSID
+  - **🍯 SweetPotato**: Combined exploitation techniques
+- **🦹 Traitor**: Automated Linux privilege escalation using known exploits
+- **🔓 UAC Bypass**: Windows User Account Control bypass methods
+
+#### 🚇 **Tunneling & Pivoting Modules**
+- **🚇 Chisel**: Fast TCP/UDP tunnel over HTTP for secure connections
+- **📡 Ligolo**: Advanced reverse proxy for network pivoting
+- **🌍 Ngrok**: Secure external tunnel access for remote connections
+
+#### 🚀 **Session & Upgrade Modules**
+- **🎯 Meterpreter**: Upgrades sessions to Metasploit for advanced post-exploitation
+- **🔄 Auto PTY**: Automatically upgrades shells to full PTY for better interaction
+
+#### 🧹 **Cleanup & Persistence Modules**
+- **🧹 Cleanup**: Removes logs, history, and artifacts from target systems
+- **🕰️ Panix**: Creates Linux persistence via systemd services
+- **💾 Session Persistence**: Maintains stable connections across network interruptions
+
+#### 🧠 **Forensics & Analysis Modules**
+- **🧠 Memory Dump**: Analyzes and extracts process memory for investigation
+- **📊 System Info**: Collects comprehensive target intelligence
+
+#### 🌞 **RedSun & 🔨 BlueHammer Modules**
+- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
+  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
+  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
+- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
+  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
+  - **🛡️ Windows Defenses**: Bypasses security mechanisms
+
+#### 📁 **File Management Modules**
+- **📁 File Manager**: Btop-like interface for file operations:
+  - **📂 Directory Navigation**: Browse folder structures
+  - **📄 File Operations**: View, edit, copy, move files
+  - **⬆️⬇️ Transfer Operations**: Upload/download files securely
+
+#### 🌐 **Network Information Modules**
+- **🌐 Network Info**: Comprehensive network detection:
+  - **🏠 Local IP**: Detects local network interfaces
+  - **🌍 Public IP**: Identifies external IP address
+  - **📝 Payload Templates**: Auto-updates payloads with real IP addresses
+  - **🎯 Actual IP Address**: Replaces `YOUR_IP` placeholders with detected IPs
 
 ### Network Information Flow & Payload Updates
 ```mermaid
