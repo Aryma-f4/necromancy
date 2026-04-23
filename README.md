@@ -39,6 +39,8 @@
 - **📚 Module Browser** - Easy access to all post-exploitation modules
 - **📊 Session List** - Visual session management with detailed information
 - **🚀 Payload Generator** - Built-in reverse shell payloads for quick deployment
+- **📁 File Manager** - Btop-like file management interface with full CRUD operations
+- **🌐 Network Info** - Automatic IP detection and location services
 
 ## 📊 Use Cases
 
@@ -190,6 +192,59 @@ Options:
 # Multi-listener setup
 ./necromancy -p 4444,4445,4446
 ```
+
+## 🚀 Quick Start
+
+### 1. Download & Install
+```bash
+# Download latest release
+wget https://github.com/Aryma-f4/necromancy/releases/latest/download/necromancy-linux-amd64
+chmod +x necromancy-linux-amd64
+
+# Or install with Go
+go install github.com/Aryma-f4/necromancy@latest
+```
+
+### 2. Start Listener
+```bash
+# Start on default port
+./necromancy
+
+# Or specify custom port
+./necromancy -p 8080
+```
+
+### 3. Generate Payloads
+```bash
+# Show available payloads
+> p
+
+# Copy payload for your target
+# Execute on target system
+```
+
+### 4. Interact with Sessions
+```bash
+# List active sessions
+> s
+
+# Connect to session
+> interact 1
+
+# Open file manager
+> f
+```
+
+## 📚 Documentation
+
+For comprehensive documentation, please refer to:
+
+- **[📖 Full Documentation](Documentation.md)** - Complete feature guide and usage examples
+- **[⚡ Quick Reference](QUICK_REFERENCE.md)** - Essential commands and workflows
+- **[⚙️ Configuration](CONFIGURATION.md)** - Configuration examples and advanced settings
+- **[🤖 AI Agent Guide](AGENTS.md)** - Technical documentation for AI assistants
+- **[🤝 Contributing](CONTRIBUTING.md)** - How to contribute to the project
+- **[🔒 Security Policy](SECURITY.md)** - Security reporting and best practices
 
 ## 📄 License
 
