@@ -36,6 +36,7 @@ func NewModuleManager() *ModuleManager {
 	mm.Register(&UACModule{})
 	mm.Register(&PanixModule{})
 	mm.Register(&LinuxProcmemdumpModule{})
+	mm.Register(&FileManagerModule{})
 	
 	return mm
 }
