@@ -39,6 +39,10 @@ func NewModuleManager() *ModuleManager {
 	mm.Register(&FileManagerModule{})
 	mm.Register(&RedSunModule{})
 	mm.Register(&BlueHammerModule{})
+	mm.Register(&PayloadObfuscationModule{})
+	mm.Register(&EnhancedPreFlightReconModule{})
+	mm.Register(&ProcessMonitorModule{})
+	mm.Register(&BackgroundCheckerModule{})
 	
 	return mm
 }

@@ -54,6 +54,12 @@ necromancy/
 | **UAC Bypass** | Windows UAC bypass techniques | Windows | 🔑 Privilege Escalation |
 | **Panix** | Linux persistence via systemd | Linux | 🕰️ Persistence |
 | **Memory Dump** | Process memory analysis | Linux | 🧠 Forensics |
+| **RedSun** | Windows vulnerability enumeration (RedSun.cpp) | Windows | 🔍 Enumeration |
+| **BlueHammer** | Windows exploitation via FunnyApp.exe | Windows | ⚡ Exploitation |
+| **Payload Obfuscator** | Customizable payload generation with anti-detection | Multi | 🎭 Anti-Detection |
+| **Enhanced Pre-flight Recon** | Comprehensive target reconnaissance with evasion | Multi | 🔍 Reconnaissance |
+| **Process Monitor** | Background process monitoring and health checks | Multi | 📊 Monitoring |
+| **Background Checker** | Check if necromancy processes are still running | Multi | 🔍 Process Check |
 
 ### UI System (`ui/`)
 - **App**: Main application controller
@@ -102,6 +108,113 @@ go build -ldflags="-s -w -X main.Version=v1.2.0 -X main.BuildDate=$(date -u +%Y-
 ./necromancy -p 4444,4445,4446        # Multiple ports
 ./necromancy -c target.com -p 4444    # Connect to bind shell
 ./necromancy -s /path/to/files -w 8000   # HTTP file server
+```
+
+## 🎭 Anti-Detection Features
+
+### Payload Obfuscation Module
+The Payload Obfuscator provides customizable payload generation with anti-detection capabilities:
+
+**Features:**
+- **Multiple Obfuscation Levels**: none, low, medium, high, polymorphic
+- **Encoding Types**: base64, hex, url, rot13, xor
+- **Randomization**: Variable names, string literals, ports, IPs
+- **Shell Types**: bash, python, powershell, perl, ruby
+- **Connection Types**: tcp, udp, icmp, http, https, dns
+
+**Usage:**
+```bash
+# Generate basic obfuscated payload
+run_module payload_obfuscator
+
+# Each generation produces different hash/signatures
+# Payload content varies with each execution
+```
+
+**Anti-Detection Techniques:**
+- Variable name randomization
+- String literal obfuscation
+- Control flow manipulation
+- Anti-analysis techniques (sleep, process checks)
+- Multi-layer encoding
+- Polymorphic encryption
+
+### Enhanced Pre-flight Reconnaissance
+Comprehensive target reconnaissance with evasion techniques:
+
+**Scan Types:**
+- **Stealth**: Slow, memory-only reconnaissance
+- **Normal**: Balanced reconnaissance
+- **Aggressive**: Comprehensive scanning
+
+**Detection Capabilities:**
+- **Firewall Detection**: iptables, firewalld, ufw, nftables, Windows Firewall
+- **Security Software**: AV, EDR, HIDS/IDS detection
+- **Process Analysis**: Security tools, scanning tools, privilege levels
+- **Network Analysis**: Open ports, active connections, services
+- **OS Detection**: Multi-platform support with stealth techniques
+
+**Recommendations:**
+- Provides payload recommendations based on detected security measures
+- Suggests appropriate ports and connection types
+- Advises on obfuscation levels needed
+
+### Process Monitoring
+Monitor and check background processes:
+
+**Features:**
+- **Background Process Detection**: Find necromancy instances
+- **Health Monitoring**: Check for zombie/defunct processes
+- **Network Listener Check**: Verify port binding status
+- **Resource Usage**: CPU and memory consumption tracking
+- **Quick Actions**: Process management commands
+
+## 🔍 Target Identification Workflow
+
+### Pre-Flight Reconnaissance Process
+```mermaid
+graph TD
+    subgraph "Target Assessment"
+        A[🎯 Target System] -->|"Scan"| B[🔍 Reconnaissance]
+        B --> C{Security Level?}
+        C -->|"Low"| D[🟢 Minimal Security]
+        C -->|"Medium"| E[🟡 Moderate Security]
+        C -->|"High"| F[🔴 High Security]
+    end
+    
+    subgraph "Security Detection"
+        B --> G[🛡️ Firewall Detection]
+        B --> H[🔒 AV/EDR Detection]
+        B --> I[🕵️ HIDS/IDS Detection]
+        B --> J[⚙️ Process Analysis]
+        B --> K[🌐 Network Analysis]
+    end
+    
+    subgraph "Payload Selection"
+        D --> L[📄 Basic Payload]
+        E --> M[🔐 Obfuscated Payload]
+        F --> N[🎭 Polymorphic Payload]
+        
+        L --> O[🚀 Deploy Payload]
+        M --> O
+        N --> O
+    end
+    
+    subgraph "Evasion Techniques"
+        G --> P[🔥 Firewall Evasion]
+        H --> Q[🎭 AV Evasion]
+        I --> R[🕵️ IDS Evasion]
+        
+        P --> O
+        Q --> O
+        R --> O
+    end
+    
+    style A fill:#FF5722,stroke:#D84315,color:#fff
+    style B fill:#2196F3,stroke:#1565C0,color:#fff
+    style F fill:#F44336,stroke:#C62828,color:#fff
+    style N fill:#9C27B0,stroke:#6A1B9A,color:#fff
+    style O fill:#4CAF50,stroke:#2E7D32,color:#fff
 ```
 
 ## 📊 Use Cases
