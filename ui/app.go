@@ -667,9 +667,14 @@ func (a *App) openFileManager(id int) {
 		return
 	}
 
+	// Let the terminal handle mouse drag selection while the file manager page
+	// is visible so the user can copy text directly from the terminal.
+	a.tviewApp.EnableMouse(false)
+
 	// Create file manager with existing app
 	fms := modules.NewFileManagerSession(session)
 	fileManager := modules.NewFileManagerUI(fms, a.tviewApp, func() {
+		a.tviewApp.EnableMouse(true)
 		// Return to session actions
 		a.showSessionActions(id)
 	})
@@ -680,6 +685,7 @@ func (a *App) openFileManager(id int) {
 	// Set up input capture to handle escape key
 	mainLayout.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEscape {
+			a.tviewApp.EnableMouse(true)
 			// Return to session actions
 			a.showSessionActions(id)
 			return nil
@@ -688,7 +694,7 @@ func (a *App) openFileManager(id int) {
 	})
 
 	// Switch to file manager page
-	a.pages.AddPage("file_manager", wrapPage("File Manager", "Manage target files directly from the main UI", "Esc returns to session actions", mainLayout, true), true, true)
+	a.pages.AddPage("file_manager", wrapPage("File Manager", "Manage target files directly from the main UI", "Mouse drag selects terminal text, Esc returns to session actions", mainLayout, true), true, true)
 	a.pages.SwitchToPage("file_manager")
 }
 

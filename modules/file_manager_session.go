@@ -1,11 +1,13 @@
 package modules
 
 import (
-	"bufio"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Aryma-f4/necromancy/core"
@@ -14,91 +16,110 @@ import (
 // FileManagerSession extends session with file manager capabilities
 type FileManagerSession struct {
 	*core.Session
-	commandOutput chan string
-	isWaiting     bool
+	commandMu  sync.Mutex
+	commandSeq uint64
 }
 
 // NewFileManagerSession creates a file manager session wrapper
 func NewFileManagerSession(session *core.Session) *FileManagerSession {
-	fms := &FileManagerSession{
-		Session:       session,
-		commandOutput: make(chan string, 100),
-		isWaiting:     false,
-	}
-
-	// Only start monitoring if session has valid history buffer
-	if session != nil && session.History != nil {
-		go fms.monitorOutput()
-	}
-
-	return fms
-}
-
-// monitorOutput monitors session output for command responses
-func (fms *FileManagerSession) monitorOutput() {
-	if fms.Session == nil || fms.Session.History == nil {
-		return
-	}
-
-	scanner := bufio.NewScanner(fms.Session.History)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if fms.isWaiting {
-			select {
-			case fms.commandOutput <- line:
-			default:
-				// Channel full, skip
-			}
-		}
-	}
+	return &FileManagerSession{Session: session}
 }
 
 // ExecuteCommand executes a command and returns output
 func (fms *FileManagerSession) ExecuteCommand(cmd string, timeout time.Duration) (string, error) {
-	fms.isWaiting = true
-	defer func() { fms.isWaiting = false }()
-
-	// Clear output channel
-	for len(fms.commandOutput) > 0 {
-		<-fms.commandOutput
+	if fms.Session == nil {
+		return "", fmt.Errorf("session is nil")
 	}
 
-	// Send command with proper formatting
-	_, err := fms.Write([]byte(cmd + "\n"))
+	fms.commandMu.Lock()
+	defer fms.commandMu.Unlock()
+
+	token := strconv.FormatUint(atomic.AddUint64(&fms.commandSeq, 1), 10)
+	startMarker := "__NECRO_FM_START_" + token + "__"
+	endMarker := "__NECRO_FM_END_" + token + "__"
+
+	ch := fms.Session.Subscribe()
+	defer fms.Session.Unsubscribe(ch)
+
+	wrappedCmd := fms.wrapCommand(cmd, startMarker, endMarker)
+	_, err := fms.Write([]byte(wrappedCmd))
 	if err != nil {
 		return "", fmt.Errorf("failed to send command: %v", err)
 	}
 
-	// Collect output with timeout
-	var output strings.Builder
-	deadline := time.After(timeout)
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
+	var stream strings.Builder
+	deadline := time.NewTimer(timeout)
+	defer deadline.Stop()
+	started := false
 
 	for {
 		select {
-		case line := <-fms.commandOutput:
-			if line != "" {
-				output.WriteString(line + "\n")
+		case data, ok := <-ch:
+			if !ok {
+				return strings.TrimSpace(stream.String()), fmt.Errorf("session output stream closed")
 			}
-		case <-ticker.C:
-			// Check if we have enough output
-			if output.Len() > 0 {
-				// Give it a bit more time
-				select {
-				case line := <-fms.commandOutput:
-					if line != "" {
-						output.WriteString(line + "\n")
-					}
-				case <-time.After(200 * time.Millisecond):
-					// No more output, return what we have
-					return strings.TrimSpace(output.String()), nil
+			if data == nil {
+				return strings.TrimSpace(stream.String()), fmt.Errorf("session closed")
+			}
+			stream.Write(data)
+			current := stream.String()
+
+			if !started {
+				startIdx := strings.Index(current, startMarker)
+				if startIdx == -1 {
+					continue
+				}
+				started = true
+				current = current[startIdx+len(startMarker):]
+			}
+
+			endIdx := strings.Index(current, endMarker)
+			if endIdx == -1 {
+				continue
+			}
+
+			return strings.TrimSpace(stripCommandEcho(current[:endIdx], cmd)), nil
+		case <-deadline.C:
+			current := stream.String()
+			if started {
+				if startIdx := strings.Index(current, startMarker); startIdx != -1 {
+					current = current[startIdx+len(startMarker):]
 				}
 			}
-		case <-deadline:
-			return strings.TrimSpace(output.String()), nil
+			return strings.TrimSpace(stripCommandEcho(current, cmd)), fmt.Errorf("command timed out after %s", timeout)
 		}
 	}
+}
+
+func (fms *FileManagerSession) wrapCommand(cmd, startMarker, endMarker string) string {
+	switch strings.ToLower(fms.DetectedOS()) {
+	case "windows":
+		return fmt.Sprintf("echo %s\r\n%s 2>&1\r\necho %s\r\n", startMarker, cmd, endMarker)
+	default:
+		return fmt.Sprintf("printf '%s\\n'; %s 2>&1; printf '\\n%s\\n'\n", startMarker, cmd, endMarker)
+	}
+}
+
+func stripCommandEcho(output, cmd string) string {
+	trimmed := strings.TrimSpace(output)
+	if trimmed == "" {
+		return ""
+	}
+
+	lines := strings.Split(trimmed, "\n")
+	cleaned := make([]string, 0, len(lines))
+	skipFirst := true
+	for _, line := range lines {
+		line = strings.TrimRight(line, "\r")
+		if skipFirst && strings.TrimSpace(line) == strings.TrimSpace(cmd) {
+			skipFirst = false
+			continue
+		}
+		skipFirst = false
+		cleaned = append(cleaned, line)
+	}
+
+	return strings.Join(cleaned, "\n")
 }
 
 // FileManagerCommands provides command generation for file operations
@@ -113,9 +134,9 @@ func NewFileManagerCommands(session *core.Session) *FileManagerCommands {
 
 // GetFileListCommand generates command to list files based on OS
 func (fmc *FileManagerCommands) GetFileListCommand(path string) string {
-	os := fmc.session.DetectedOS()
+	targetOS := fmc.session.DetectedOS()
 
-	switch os {
+	switch targetOS {
 	case "windows":
 		return fmc.getWindowsFileListCommand(path)
 	case "linux":
@@ -127,8 +148,7 @@ func (fmc *FileManagerCommands) GetFileListCommand(path string) string {
 
 // getWindowsFileListCommand generates Windows-specific file listing
 func (fmc *FileManagerCommands) getWindowsFileListCommand(path string) string {
-	// Simple dir command for Windows
-	return fmt.Sprintf(`dir /a "%s" 2>nul`, path)
+	return fmt.Sprintf(`powershell -NoProfile -Command "Get-ChildItem -Force '%s' | Select-Object Mode,Length,LastWriteTime,Name"`, path)
 }
 
 // getLinuxFileListCommand generates Linux-specific file listing
@@ -238,9 +258,26 @@ func (fmc *FileManagerCommands) parseLinuxFileList(output string) []FileInfo {
 			continue
 		}
 
+		// Support the legacy pipe-delimited test fixture format:
+		// name|size|mode|modTime|isDir|isLink
+		if strings.Count(line, "|") >= 5 {
+			parts := strings.SplitN(line, "|", 6)
+			size := int64(0)
+			fmt.Sscanf(parts[1], "%d", &size)
+			files = append(files, FileInfo{
+				Name:    parts[0],
+				Size:    size,
+				Mode:    parts[2],
+				ModTime: parts[3],
+				IsDir:   parts[4] == "true",
+				IsLink:  parts[5] == "true",
+			})
+			continue
+		}
+
 		// Parse ls -la format: -rw-r--r-- 1 user group 1234 Jan 01 12:00 filename
 		parts := strings.Fields(line)
-		if len(parts) >= 9 {
+		if len(parts) >= 9 && isUnixModeField(parts[0]) {
 			mode := parts[0]
 			size := int64(0)
 			fmt.Sscanf(parts[4], "%d", &size)
@@ -267,6 +304,28 @@ func (fmc *FileManagerCommands) parseLinuxFileList(output string) []FileInfo {
 	return files
 }
 
+func isUnixModeField(mode string) bool {
+	if len(mode) != 10 {
+		return false
+	}
+
+	switch mode[0] {
+	case '-', 'd', 'l', 'c', 'b', 'p', 's':
+	default:
+		return false
+	}
+
+	for _, ch := range mode[1:] {
+		switch ch {
+		case 'r', 'w', 'x', 's', 'S', 't', 'T', '-':
+		default:
+			return false
+		}
+	}
+
+	return true
+}
+
 // parseUnixFileList parses generic Unix output
 func (fmc *FileManagerCommands) parseUnixFileList(output string) []FileInfo {
 	return fmc.parseLinuxFileList(output)
@@ -274,10 +333,10 @@ func (fmc *FileManagerCommands) parseUnixFileList(output string) []FileInfo {
 
 // GetCurrentDirectory gets the current working directory
 func (fmc *FileManagerCommands) GetCurrentDirectory() (string, error) {
-	os := fmc.session.DetectedOS()
+	targetOS := fmc.session.DetectedOS()
 	var cmd string
 
-	switch os {
+	switch targetOS {
 	case "windows":
 		cmd = `cd` // Simple cd command for Windows
 	default:
@@ -294,10 +353,10 @@ func (fmc *FileManagerCommands) GetCurrentDirectory() (string, error) {
 
 // GetFileContent gets file content
 func (fmc *FileManagerCommands) GetFileContent(filepath string) (string, error) {
-	os := fmc.session.DetectedOS()
+	targetOS := fmc.session.DetectedOS()
 	var cmd string
 
-	switch os {
+	switch targetOS {
 	case "windows":
 		cmd = fmt.Sprintf(`powershell -Command "Get-Content '%s' -Raw"`, filepath)
 	default:
@@ -309,10 +368,10 @@ func (fmc *FileManagerCommands) GetFileContent(filepath string) (string, error) 
 
 // DownloadFile downloads a file from the target using simple commands
 func (fmc *FileManagerCommands) DownloadFile(remotePath, localPath string) error {
-	os := fmc.session.DetectedOS()
+	targetOS := fmc.session.DetectedOS()
 	var cmd string
 
-	switch os {
+	switch targetOS {
 	case "windows":
 		// Use simple type command for Windows
 		cmd = fmt.Sprintf(`type "%s"`, remotePath)
@@ -327,13 +386,13 @@ func (fmc *FileManagerCommands) DownloadFile(remotePath, localPath string) error
 	}
 
 	// Write output directly to local file
-	return ioutil.WriteFile(localPath, []byte(output), 0644)
+	return os.WriteFile(localPath, []byte(output), 0644)
 }
 
 // UploadFile uploads a file to the target using simple echo commands
 func (fmc *FileManagerCommands) UploadFile(localPath, remotePath string) error {
 	// Read local file
-	data, err := ioutil.ReadFile(localPath)
+	data, err := os.ReadFile(localPath)
 	if err != nil {
 		return fmt.Errorf("failed to read local file: %v", err)
 	}
@@ -341,7 +400,7 @@ func (fmc *FileManagerCommands) UploadFile(localPath, remotePath string) error {
 	// For small files, use simple echo command
 	// For larger files, we'll implement chunked upload
 	if len(data) < 1000 {
-		os := fmc.session.DetectedOS()
+		targetOS := fmc.session.DetectedOS()
 		var cmd string
 
 		// Escape special characters for shell
@@ -350,7 +409,7 @@ func (fmc *FileManagerCommands) UploadFile(localPath, remotePath string) error {
 		content = strings.ReplaceAll(content, `'`, `\'`)
 		content = strings.ReplaceAll(content, `$`, `\$`)
 
-		switch os {
+		switch targetOS {
 		case "windows":
 			cmd = fmt.Sprintf(`echo "%s" > "%s"`, content, remotePath)
 		default:
@@ -367,10 +426,10 @@ func (fmc *FileManagerCommands) UploadFile(localPath, remotePath string) error {
 
 // CreateDirectory creates a new directory
 func (fmc *FileManagerCommands) CreateDirectory(path string) error {
-	os := fmc.session.DetectedOS()
+	targetOS := fmc.session.DetectedOS()
 	var cmd string
 
-	switch os {
+	switch targetOS {
 	case "windows":
 		cmd = fmt.Sprintf(`mkdir "%s"`, path)
 	default:
@@ -383,10 +442,10 @@ func (fmc *FileManagerCommands) CreateDirectory(path string) error {
 
 // RemoveFile removes a file or directory
 func (fmc *FileManagerCommands) RemoveFile(path string) error {
-	os := fmc.session.DetectedOS()
+	targetOS := fmc.session.DetectedOS()
 	var cmd string
 
-	switch os {
+	switch targetOS {
 	case "windows":
 		cmd = fmt.Sprintf(`Remove-Item -Path "%s" -Recurse -Force`, path)
 	default:
@@ -399,10 +458,10 @@ func (fmc *FileManagerCommands) RemoveFile(path string) error {
 
 // CopyFile copies a file or directory
 func (fmc *FileManagerCommands) CopyFile(source, destination string) error {
-	os := fmc.session.DetectedOS()
+	targetOS := fmc.session.DetectedOS()
 	var cmd string
 
-	switch os {
+	switch targetOS {
 	case "windows":
 		cmd = fmt.Sprintf(`Copy-Item -Path "%s" -Destination "%s" -Recurse`, source, destination)
 	default:
@@ -415,10 +474,10 @@ func (fmc *FileManagerCommands) CopyFile(source, destination string) error {
 
 // MoveFile moves/renames a file
 func (fmc *FileManagerCommands) MoveFile(source, destination string) error {
-	os := fmc.session.DetectedOS()
+	targetOS := fmc.session.DetectedOS()
 	var cmd string
 
-	switch os {
+	switch targetOS {
 	case "windows":
 		cmd = fmt.Sprintf(`Move-Item -Path "%s" -Destination "%s"`, source, destination)
 	default:
@@ -431,10 +490,10 @@ func (fmc *FileManagerCommands) MoveFile(source, destination string) error {
 
 // GetDiskUsage gets disk usage information
 func (fmc *FileManagerCommands) GetDiskUsage(path string) (used, free, percent string, err error) {
-	os := fmc.session.DetectedOS()
+	targetOS := fmc.session.DetectedOS()
 	var cmd string
 
-	switch os {
+	switch targetOS {
 	case "windows":
 		cmd = fmt.Sprintf(`powershell -Command "$drive = Get-PSDrive -Name (Get-Item '%s').PSDrive.Name; Write-Host \"$($drive.Used)|$($drive.Free)|$([math]::Round(($drive.Free/($drive.Used+$drive.Free))*100,2))\""`, path)
 	default:

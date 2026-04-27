@@ -177,5 +177,5 @@ This tool should only be used for:
 This security policy is regularly updated. Check back for the latest version.
 
 **Last Updated**: 2026-04-23  
-**Version**: 1.5.0  
+**Version**: 1.5.1  
 **Policy Version**: 1.0

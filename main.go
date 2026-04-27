@@ -21,7 +21,7 @@ import (
 
 // Version variables - will be set by build flags
 var (
-	Version   = "v1.5.0"
+	Version   = "v1.5.1"
 	BuildDate = "unknown"
 )
 
