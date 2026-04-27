@@ -24,6 +24,7 @@ type Session struct {
 	LiveOutput chan []byte
 	IsAttached bool
 	LogFile    *os.File
+	subs       map[chan []byte]struct{}
 }
 
 func NewSession(id int, conn net.Conn) *Session {
@@ -35,6 +36,7 @@ func NewSession(id int, conn net.Conn) *Session {
 		History:    new(bytes.Buffer),
 		Active:     true,
 		LiveOutput: make(chan []byte, 100),
+		subs:       make(map[chan []byte]struct{}),
 	}
 
 	if GlobalConfig != nil && !GlobalConfig.NoLog {
@@ -42,7 +44,7 @@ func NewSession(id int, conn net.Conn) *Session {
 		f, err := os.OpenFile(fmt.Sprintf("logs/session_%d.log", id), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 		if err == nil {
 			s.LogFile = f
-			f.WriteString(fmt.Sprintf("=== Session %d started at %s ===\n", id, time.Now().Format(time.RFC3339)))
+			fmt.Fprintf(f, "=== Session %d started at %s ===\n", id, time.Now().Format(time.RFC3339))
 		}
 	}
 
@@ -112,12 +114,13 @@ func (s *Session) readLoop() {
 			s.mu.Lock()
 			s.Active = false
 			if s.LogFile != nil {
-				s.LogFile.WriteString(fmt.Sprintf("=== Session closed at %s ===\n", time.Now().Format(time.RFC3339)))
+				fmt.Fprintf(s.LogFile, "=== Session closed at %s ===\n", time.Now().Format(time.RFC3339))
 				s.LogFile.Close()
 			}
 			if s.IsAttached {
 				s.LiveOutput <- nil // Signal EOF
 			}
+			s.broadcastLocked(nil)
 			s.mu.Unlock()
 			return
 		}
@@ -136,6 +139,7 @@ func (s *Session) readLoop() {
 		if s.IsAttached {
 			s.LiveOutput <- data
 		}
+		s.broadcastLocked(data)
 		s.mu.Unlock()
 	}
 }
@@ -175,6 +179,49 @@ func (s *Session) Detach() {
 	s.mu.Lock()
 	s.IsAttached = false
 	s.mu.Unlock()
+}
+
+func (s *Session) SnapshotHistory() []byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	data := make([]byte, s.History.Len())
+	copy(data, s.History.Bytes())
+	return data
+}
+
+func (s *Session) Subscribe() chan []byte {
+	ch := make(chan []byte, 256)
+
+	s.mu.Lock()
+	s.subs[ch] = struct{}{}
+	s.mu.Unlock()
+
+	return ch
+}
+
+func (s *Session) Unsubscribe(ch chan []byte) {
+	s.mu.Lock()
+	if _, ok := s.subs[ch]; ok {
+		delete(s.subs, ch)
+		close(ch)
+	}
+	s.mu.Unlock()
+}
+
+func (s *Session) broadcastLocked(data []byte) {
+	for ch := range s.subs {
+		var payload []byte
+		if data != nil {
+			payload = make([]byte, len(data))
+			copy(payload, data)
+		}
+
+		select {
+		case ch <- payload:
+		default:
+		}
+	}
 }
 
 type SessionManager struct {

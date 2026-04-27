@@ -1,11 +1,8 @@
 package modules
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -25,53 +22,6 @@ type FileInfo struct {
 	LinkTarget string `json:"linkTarget,omitempty"`
 }
 
-// getBannerFromFile reads and parses the ASCII banner from file
-func getBannerFromFile() string {
-	file, err := os.Open("ascii.txt")
-	if err != nil {
-		// Fallback to simple text banner if file not found
-		return "[yellow]NECROMANCY[-]\n[blue]Advanced Shell Manager[-]"
-	}
-	defer file.Close()
-
-	var lines []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		// Parse BBCode color tags for tview
-		line = parseBBCodeForTview(line)
-		lines = append(lines, line)
-	}
-
-	if err := scanner.Err(); err != nil {
-		return "[yellow]NECROMANCY[-]\n[blue]Advanced Shell Manager[-]"
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-// parseBBCodeForTview converts BBCode color tags to tview format
-func parseBBCodeForTview(text string) string {
-	// Convert [color=#hex] to tview color format
-	colorPattern := regexp.MustCompile(`\[color=([^\]]+)\]`)
-	text = colorPattern.ReplaceAllString(text, "[$1]")
-
-	// Convert [/color] to tview reset
-	text = strings.ReplaceAll(text, "[/color]", "[-:-:-]")
-
-	// Remove size and font tags
-	text = regexp.MustCompile(`\[size=[^\]]+\]`).ReplaceAllString(text, "")
-	text = regexp.MustCompile(`\[/size\]`).ReplaceAllString(text, "")
-	text = regexp.MustCompile(`\[font=[^\]]+\]`).ReplaceAllString(text, "")
-	text = regexp.MustCompile(`\[/font\]`).ReplaceAllString(text, "")
-
-	// Remove HTML span tags
-	text = regexp.MustCompile(`<span[^>]*>`).ReplaceAllString(text, "")
-	text = regexp.MustCompile(`</span>`).ReplaceAllString(text, "")
-
-	return text
-}
-
 // FileManagerModule provides btop-like file manager UI
 type FileManagerModule struct{}
 
@@ -87,28 +37,15 @@ func (m *FileManagerModule) Execute(s *core.Session) error {
 	// Create enhanced session for file manager
 	fms := NewFileManagerSession(s)
 
-	// Launch the file manager UI with banner
+	// Launch the file manager UI as a full-screen view.
 	app := tview.NewApplication()
-
-	// Create banner view with ASCII art
-	bannerView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetTextAlign(tview.AlignCenter).
-		SetText(getBannerFromFile() + "\n[gray]v1.2 Stable Release - File Manager[-]\n[blue]Interactive File Management for Target Systems[-]")
-
-	bannerView.SetBackgroundColor(tcell.ColorBlack)
 
 	// Create file manager with exit callback
 	fileManager := NewFileManagerUI(fms, app, func() {
 		app.Stop()
 	})
 
-	// Create layout with banner at top
-	mainLayout := tview.NewFlex().SetDirection(tview.FlexRow)
-	mainLayout.AddItem(bannerView, 8, 0, false)
-	mainLayout.AddItem(fileManager.Layout, 0, 1, true)
-
-	if err := app.SetRoot(mainLayout, true).EnableMouse(true).Run(); err != nil {
+	if err := app.SetRoot(fileManager.Layout, true).EnableMouse(true).Run(); err != nil {
 		return fmt.Errorf("file manager UI error: %v", err)
 	}
 

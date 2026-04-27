@@ -1,13 +1,11 @@
 package ui
 
 import (
-	"bufio"
 	"fmt"
 	"log"
-	"os"
 	"os/exec"
-	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/Aryma-f4/necromancy/core"
@@ -18,59 +16,25 @@ import (
 	"github.com/rivo/tview"
 )
 
-// getBannerFromFile reads and parses the ASCII banner from file
-func getBannerFromFile() string {
-	file, err := os.Open("ascii.txt")
-	if err != nil {
-		// Fallback to simple text banner if file not found
-		return "[yellow]NECROMANCY[-]\n[blue]Advanced Shell Manager[-]"
-	}
-	defer file.Close()
-
-	var lines []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		// Parse BBCode color tags for tview
-		line = parseBBCodeForTview(line)
-		lines = append(lines, line)
-	}
-
-	if err := scanner.Err(); err != nil {
-		return "[yellow]NECROMANCY[-]\n[blue]Advanced Shell Manager[-]"
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-// parseBBCodeForTview converts BBCode color tags to tview format
-func parseBBCodeForTview(text string) string {
-	// Convert [color=#hex] to tview color format
-	colorPattern := regexp.MustCompile(`\[color=([^\]]+)\]`)
-	text = colorPattern.ReplaceAllString(text, "[$1]")
-
-	// Convert [/color] to tview reset
-	text = strings.ReplaceAll(text, "[/color]", "[-:-:-]")
-
-	// Remove size and font tags
-	text = regexp.MustCompile(`\[size=[^\]]+\]`).ReplaceAllString(text, "")
-	text = regexp.MustCompile(`\[/size\]`).ReplaceAllString(text, "")
-	text = regexp.MustCompile(`\[font=[^\]]+\]`).ReplaceAllString(text, "")
-	text = regexp.MustCompile(`\[/font\]`).ReplaceAllString(text, "")
-
-	// Remove HTML span tags
-	text = regexp.MustCompile(`<span[^>]*>`).ReplaceAllString(text, "")
-	text = regexp.MustCompile(`</span>`).ReplaceAllString(text, "")
-
-	return text
-}
-
 type App struct {
-	tviewApp *tview.Application
-	pages    *tview.Pages
-	sessions *core.SessionManager
-	menuList *tview.List
+	tviewApp        *tview.Application
+	pages           *tview.Pages
+	sessions        *core.SessionManager
+	menuList        *tview.List
+	shellWorkspaces map[int]*sessionShellWorkspace
 }
+
+var (
+	colorBackground = tcell.NewRGBColor(8, 11, 18)
+	colorPanel      = tcell.NewRGBColor(14, 19, 28)
+	colorPanelAlt   = tcell.NewRGBColor(20, 28, 40)
+	colorAccent     = tcell.NewRGBColor(92, 145, 255)
+	colorAccentSoft = tcell.NewRGBColor(52, 86, 140)
+	colorPrimary    = tcell.NewRGBColor(235, 240, 255)
+	colorSecondary  = tcell.NewRGBColor(152, 214, 189)
+	colorMuted      = tcell.NewRGBColor(120, 129, 149)
+	colorWarning    = tcell.NewRGBColor(255, 210, 92)
+)
 
 type payloadDefinition struct {
 	Name        string
@@ -80,7 +44,10 @@ type payloadDefinition struct {
 
 func payloadDefinitions() []payloadDefinition {
 	// Get the current port from global config
-	port := core.GlobalConfig.Ports
+	port := ""
+	if core.GlobalConfig != nil {
+		port = core.GlobalConfig.Ports
+	}
 	if port == "" {
 		port = "4444"
 	}
@@ -172,119 +139,179 @@ func copyTextToClipboard(text string) error {
 
 func (a *App) mainMenuSummary() string {
 	activeSessions := len(a.sessions.GetAll())
+	ports := listenerPortsSummary()
 	return fmt.Sprintf(
-		"[yellow]Necromancy[white]\n"+
-			"[green]Active sessions:[white] %d\n\n"+
-			"[yellow]Quick keys[white]\n"+
-			"[green]s[white] Sessions\n"+
-			"[green]p[white] Payloads\n"+
-			"[green]m[white] Modules\n"+
-			"[green]i[white] Interfaces\n"+
-			"[green]q[white] Exit\n\n"+
-			"[yellow]Tips[white]\n"+
-			"- Use arrow keys to move\n"+
-			"- Press Enter to open\n"+
-			"- Press Esc to go back from tools",
-		activeSessions,
+		"[#5c91ff]Control Center[-]\n"+
+			"[#98d6bd]Active sessions:[-] %d\n"+
+			"[#98d6bd]Listening ports:[-] %s\n\n"+
+			"[#ffd25c]Quick navigation[-]\n"+
+			" [#5c91ff]s[-] Sessions\n"+
+			" [#5c91ff]p[-] Payloads\n"+
+			" [#5c91ff]m[-] Modules\n"+
+			" [#5c91ff]n[-] Network Info\n"+
+			" [#5c91ff]i[-] Interfaces\n"+
+			" [#5c91ff]q[-] Exit\n\n"+
+			"[#ffd25c]Operator notes[-]\n"+
+			" - Use arrow keys to move\n"+
+			" - Press Enter to open a panel\n"+
+			" - Press Esc to go back",
+		activeSessions, ports,
 	)
 }
 
 func mainMenuDetails(mainText, secondaryText string) string {
 	return fmt.Sprintf(
-		"[yellow]Selected[white]\n"+
-			"[green]%s[white]\n\n"+
+		"[#ffd25c]Selected Panel[-]\n"+
+			"[#98d6bd]%s[-]\n\n"+
 			"%s\n\n"+
-			"[yellow]Action[white]\n"+
-			"Press [green]Enter[white] to open this section.",
+			"[#5c91ff]Action[-]\n"+
+			"Press [#98d6bd]Enter[-] to open this panel.",
 		mainText,
 		secondaryText,
 	)
 }
 
-func newBannerView() *tview.TextView {
-	banner := tview.NewTextView().
-		SetDynamicColors(true).
-		SetTextAlign(tview.AlignCenter)
+func listenerPortsSummary() string {
+	if core.GlobalConfig == nil || strings.TrimSpace(core.GlobalConfig.Ports) == "" {
+		return "4444"
+	}
 
-	banner.SetBackgroundColor(tcell.ColorBlack)
-	banner.SetWrap(false)
-	banner.SetWordWrap(false)
-	banner.SetText(getBannerFromFile() + "\n[gray] v1.2 Stable Release - Advanced Shell Manager [-]\n[gray] https://github.com/Aryma-f4/necromancy [-]\n")
-
-	return banner
+	parts := strings.Split(core.GlobalConfig.Ports, ",")
+	cleaned := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			cleaned = append(cleaned, part)
+		}
+	}
+	if len(cleaned) == 0 {
+		return "4444"
+	}
+	return strings.Join(cleaned, ", ")
 }
 
-func wrapWithBanner(content tview.Primitive, focusContent bool) tview.Primitive {
-	flex := tview.NewFlex().SetDirection(tview.FlexRow)
-	flex.SetBackgroundColor(tcell.ColorBlack)
-	flex.AddItem(newBannerView(), 0, 1, false)
-	flex.AddItem(content, 0, 2, focusContent)
-	return flex
+func newPageHeader(title, subtitle string) *tview.TextView {
+	header := tview.NewTextView().
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignLeft)
+	header.SetBackgroundColor(colorPanel)
+	header.SetText(fmt.Sprintf(" [#ffd25c]%s[-]\n [#788195]%s[-]", title, subtitle))
+	return header
+}
+
+func newPageFooter(text string) *tview.TextView {
+	footer := tview.NewTextView().
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignCenter)
+	footer.SetBackgroundColor(colorPanel)
+	footer.SetText(fmt.Sprintf("[#788195]%s[-]", text))
+	return footer
+}
+
+func wrapPage(title, subtitle, footerText string, content tview.Primitive, focusContent bool) tview.Primitive {
+	layout := tview.NewFlex().SetDirection(tview.FlexRow)
+	layout.SetBackgroundColor(colorBackground)
+	layout.AddItem(newPageHeader(title, subtitle), 2, 0, false)
+	layout.AddItem(content, 0, 2, focusContent)
+	layout.AddItem(newPageFooter(footerText), 1, 0, false)
+	return layout
+}
+
+func styleList(list *tview.List, title string) *tview.List {
+	list.SetBorder(true)
+	list.SetTitle(title)
+	list.SetTitleColor(colorWarning)
+	list.SetBorderColor(colorAccentSoft)
+	list.SetBackgroundColor(colorPanel)
+	list.SetMainTextColor(colorPrimary)
+	list.SetSecondaryTextColor(colorSecondary)
+	list.SetSelectedBackgroundColor(colorAccentSoft)
+	list.SetSelectedTextColor(colorWarning)
+	list.SetHighlightFullLine(true)
+	list.ShowSecondaryText(true)
+	return list
+}
+
+func styleTextView(tv *tview.TextView, title string) *tview.TextView {
+	tv.SetBorder(true)
+	tv.SetTitle(title)
+	tv.SetTitleColor(colorWarning)
+	tv.SetBorderColor(colorAccentSoft)
+	tv.SetBackgroundColor(colorPanel)
+	tv.SetTextColor(colorPrimary)
+	return tv
+}
+
+func styleForm(form *tview.Form, title string) *tview.Form {
+	form.SetBorder(true)
+	form.SetTitle(title)
+	form.SetTitleColor(colorWarning)
+	form.SetBorderColor(colorAccentSoft)
+	form.SetBackgroundColor(colorPanel)
+	form.SetButtonBackgroundColor(colorAccentSoft)
+	form.SetButtonTextColor(colorPrimary)
+	form.SetFieldBackgroundColor(colorPanelAlt)
+	form.SetFieldTextColor(colorPrimary)
+	form.SetLabelColor(colorSecondary)
+	return form
 }
 
 func NewApp(sm *core.SessionManager) *App {
 	return &App{
-		tviewApp: tview.NewApplication(),
-		pages:    tview.NewPages(),
-		sessions: sm,
+		tviewApp:        tview.NewApplication(),
+		pages:           tview.NewPages(),
+		sessions:        sm,
+		shellWorkspaces: make(map[int]*sessionShellWorkspace),
 	}
 }
 
 func (a *App) Setup() {
-	// Set custom colors for better visibility
-	tview.Styles.PrimitiveBackgroundColor = tcell.ColorBlack
-	tview.Styles.ContrastBackgroundColor = tcell.ColorDarkBlue
-	tview.Styles.MoreContrastBackgroundColor = tcell.ColorBlue
-	tview.Styles.BorderColor = tcell.ColorBlue
-	tview.Styles.TitleColor = tcell.ColorYellow
-	tview.Styles.GraphicsColor = tcell.ColorWhite
-	tview.Styles.PrimaryTextColor = tcell.ColorWhite
-	tview.Styles.SecondaryTextColor = tcell.ColorGreen
-	tview.Styles.TertiaryTextColor = tcell.ColorDarkGray
-	tview.Styles.InverseTextColor = tcell.ColorBlack
-	tview.Styles.ContrastSecondaryTextColor = tcell.ColorDarkGreen
+	tview.Styles.PrimitiveBackgroundColor = colorBackground
+	tview.Styles.ContrastBackgroundColor = colorPanel
+	tview.Styles.MoreContrastBackgroundColor = colorPanelAlt
+	tview.Styles.BorderColor = colorAccentSoft
+	tview.Styles.TitleColor = colorWarning
+	tview.Styles.GraphicsColor = colorAccent
+	tview.Styles.PrimaryTextColor = colorPrimary
+	tview.Styles.SecondaryTextColor = colorSecondary
+	tview.Styles.TertiaryTextColor = colorMuted
+	tview.Styles.InverseTextColor = colorBackground
+	tview.Styles.ContrastSecondaryTextColor = colorAccent
 
-	// Create a cleaner and more interactive main menu layout.
 	root := tview.NewFlex().SetDirection(tview.FlexRow)
 	header := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter)
-	header.SetBackgroundColor(tcell.ColorBlack)
-	header.SetText("[yellow]Necromancy Main Menu[white]  [gray]v1.2 Stable Release[-]\n[green]Interactive reverse shell manager[-]")
+	header.SetBackgroundColor(colorPanel)
+	header.SetText(fmt.Sprintf(
+		"[#ffd25c]Necromancy Operations Dashboard[-]\n[#98d6bd]Sessions:[-] %d   [#788195]|[-]   [#98d6bd]Ports:[-] %s   [#788195]|[-]   [#5c91ff]Mode:[-] TUI",
+		len(a.sessions.GetAll()),
+		listenerPortsSummary(),
+	))
 
 	a.menuList = tview.NewList().
-		AddItem("View Sessions", "List all active reverse shells", 's', a.showSessionsList).
-		AddItem("Show Payloads", "Show reverse shell payloads", 'p', a.showPayloads).
-		AddItem("Show Modules", "List available post-exploitation modules", 'm', a.showAllModules).
-		AddItem("Network Info", "Show local and public IP addresses", 'n', a.showNetworkInfo).
-		AddItem("Interfaces", "List local network interfaces", 'i', a.showInterfaces).
-		AddItem("Exit", "Quit application", 'q', func() {
+		AddItem("Sessions", "View active reverse shells and open per-session actions", 's', a.showSessionsList).
+		AddItem("Payloads", "Preview payloads, refresh listener IP, and copy to clipboard", 'p', a.showPayloads).
+		AddItem("Modules", "Browse post-exploitation modules used after a reverse shell is established", 'm', a.showAllModules).
+		AddItem("Network Info", "Show local IP, public IP, and configured listener ports", 'n', a.showNetworkInfo).
+		AddItem("Interfaces", "List available local network interfaces", 'i', a.showInterfaces).
+		AddItem("Exit", "Quit the application", 'q', func() {
 			a.tviewApp.Stop()
 		})
 
-	a.menuList.SetBorder(true).SetTitle(" Necromancy Main Menu v1.2 Stable Release ")
-	a.menuList.SetBackgroundColor(tcell.ColorBlack)
-
-	// Set highlight colors for better visibility
-	a.menuList.SetHighlightFullLine(true)
-	a.menuList.SetMainTextColor(tcell.ColorWhite)
-	a.menuList.SetSecondaryTextColor(tcell.ColorGreen)
-	a.menuList.SetSelectedBackgroundColor(tcell.ColorDarkBlue)
-	a.menuList.SetSelectedTextColor(tcell.ColorYellow)
-	a.menuList.ShowSecondaryText(true)
+	styleList(a.menuList, " Navigation ")
 
 	infoView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetWrap(true)
-	infoView.SetBorder(true).SetTitle(" Details ")
-	infoView.SetBackgroundColor(tcell.ColorBlack)
+	styleTextView(infoView, " Overview ")
 	infoView.SetText(a.mainMenuSummary())
 
 	footer := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter)
-	footer.SetBackgroundColor(tcell.ColorBlack)
-	footer.SetText("[gray]Navigate with arrows | Enter to select | q to quit[-]")
+	footer.SetBackgroundColor(colorPanel)
+	footer.SetText("[#788195]Arrows navigate  [#5c91ff]|[-]  Enter opens panel  [#5c91ff]|[-]  Esc goes back  [#5c91ff]|[-]  q exits[-]")
 
 	a.menuList.SetChangedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
 		if mainText == "" {
@@ -295,8 +322,8 @@ func (a *App) Setup() {
 	})
 
 	body := tview.NewFlex().
-		AddItem(a.menuList, 0, 3, true).
-		AddItem(infoView, 0, 2, false)
+		AddItem(a.menuList, 0, 2, true).
+		AddItem(infoView, 0, 3, false)
 
 	root.AddItem(header, 2, 0, false)
 	root.AddItem(body, 0, 1, true)
@@ -311,18 +338,19 @@ func (a *App) Run() error {
 
 func (a *App) showSessionsList() {
 	list := tview.NewList()
-	list.SetBorder(true).SetTitle(" Active Sessions (Esc to go back) ")
+	styleList(list, " Active Sessions ")
 
 	sess := a.sessions.GetAll()
 	if len(sess) == 0 {
-		list.AddItem("No active sessions.", "Wait for a reverse shell to connect...", 'n', nil)
+		list.AddItem("No active sessions", "Wait for a reverse shell to connect, then refresh this view", 'n', nil)
 	} else {
 		for i, s := range sess {
 			idx := i
 			shortcut := rune('1' + idx)
-			title := fmt.Sprintf("Session %d: %s [%s]", s.ID, s.RemoteAddr, s.Type)
+			title := fmt.Sprintf("Session %d  %s", s.ID, s.RemoteAddr)
+			description := fmt.Sprintf("Type: %s  |  Press Enter to open session actions", s.Type)
 
-			list.AddItem(title, "Connect to shell", shortcut, func() {
+			list.AddItem(title, description, shortcut, func() {
 				a.showSessionActions(s.ID)
 			})
 		}
@@ -336,8 +364,7 @@ func (a *App) showSessionsList() {
 		return event
 	})
 
-	list.SetBackgroundColor(tcell.ColorBlack)
-	a.pages.AddPage("sessions", list, true, true)
+	a.pages.AddPage("sessions", wrapPage("Active Sessions", "Select a session to open the shell, modules, or file manager", "Esc returns to the main dashboard", list, true), true, true)
 }
 
 func (a *App) UpdateSessionsList() {
@@ -353,13 +380,16 @@ func (a *App) showSessionActions(id int) {
 	}
 
 	list := tview.NewList().
-		AddItem("Interact", "Connect to the shell", 'i', func() {
+		AddItem("Shell Tabs", "Open a tabbed shell workspace inside the TView UI", 't', func() {
+			a.openSessionShellTabs(id)
+		}).
+		AddItem("Raw Interact", "Open the raw interactive shell for this session", 'i', func() {
 			a.openSessionTerminal(id)
 		}).
-		AddItem("File Manager", "Browse and manage files on target (btop-like UI)", 'f', func() {
+		AddItem("File Manager", "Browse and manage target files in the terminal UI", 'f', func() {
 			a.openFileManager(id)
 		}).
-		AddItem("Cancel Commands", "Send interrupt and stop running session commands", 'c', func() {
+		AddItem("Cancel Commands", "Send an interrupt to stop the currently running command", 'c', func() {
 			session, exists := a.sessions.Get(id)
 			if !exists {
 				a.showSessionsList()
@@ -370,24 +400,31 @@ func (a *App) showSessionActions(id int) {
 			}
 			a.showSessionActions(id)
 		}).
-		AddItem("Run Module", "Run a post-exploitation module", 'm', func() {
+		AddItem("Run Module", "Run a post-exploitation module after the reverse shell is already active", 'm', func() {
 			a.showModulesList(id)
 		}).
-		AddItem("Upload File", "Upload a local file to target via base64", 'u', func() {
+		AddItem("Upload File", "Upload a local file to the target through base64", 'u', func() {
 			a.showUploadForm(id)
 		}).
-		AddItem("In-Memory Exec", "Execute a local script on target in-memory", 'e', func() {
+		AddItem("In-Memory Exec", "Execute a local script on the target without storing it permanently", 'e', func() {
 			a.showExecForm(id)
 		}).
-		AddItem("Port Forwarding", "Set up tunneling / proxying", 'p', func() {
+		AddItem("Port Forwarding", "Open tunneling and pivoting guidance", 'p', func() {
 			a.showPortFwd(id)
 		}).
-		AddItem("Kill", "Terminate the session", 'k', func() {
+		AddItem("Kill", "Terminate and remove this session", 'k', func() {
+			if workspace, ok := a.shellWorkspaces[id]; ok {
+				if workspace.outputSub != nil {
+					workspace.session.Unsubscribe(workspace.outputSub)
+				}
+				delete(a.shellWorkspaces, id)
+				a.pages.RemovePage(workspace.pageName)
+			}
 			a.sessions.Remove(id)
 			a.showSessionsList()
 		})
 
-	list.SetBorder(true).SetTitle(fmt.Sprintf(" Actions for Session %d ", id))
+	styleList(list, fmt.Sprintf(" Session %d Actions ", id))
 	list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEscape {
 			a.showSessionsList()
@@ -396,8 +433,7 @@ func (a *App) showSessionActions(id int) {
 		return event
 	})
 
-	list.SetBackgroundColor(tcell.ColorBlack)
-	a.pages.AddPage("session_actions", wrapWithBanner(list, true), true, true)
+	a.pages.AddPage("session_actions", wrapPage(fmt.Sprintf("Session %d", id), "Choose an action for this target, including raw shell access or tabbed shell workspaces", "Esc returns to the session list", list, true), true, true)
 }
 
 func (a *App) showUploadForm(id int) {
@@ -426,9 +462,8 @@ func (a *App) showUploadForm(id int) {
 			a.showSessionActions(id)
 		})
 
-	form.SetBorder(true).SetTitle(fmt.Sprintf(" Upload to Session %d ", id))
-	form.SetBackgroundColor(tcell.ColorBlack)
-	a.pages.AddPage("upload_form", wrapWithBanner(form, true), true, true)
+	styleForm(form, fmt.Sprintf(" Upload to Session %d ", id))
+	a.pages.AddPage("upload_form", wrapPage("Upload File", "Send a local file to the target using the destination path you choose", "Esc returns to session actions", form, true), true, true)
 }
 
 func (a *App) showExecForm(id int) {
@@ -454,14 +489,13 @@ func (a *App) showExecForm(id int) {
 			a.showSessionActions(id)
 		})
 
-	form.SetBorder(true).SetTitle(fmt.Sprintf(" Execute In-Memory on Session %d ", id))
-	form.SetBackgroundColor(tcell.ColorBlack)
-	a.pages.AddPage("exec_form", wrapWithBanner(form, true), true, true)
+	styleForm(form, fmt.Sprintf(" Execute In-Memory on Session %d ", id))
+	a.pages.AddPage("exec_form", wrapPage("In-Memory Execution", "Execute a local script directly on the target without a full upload", "Esc returns to session actions", form, true), true, true)
 }
 
 func (a *App) showPortFwd(id int) {
 	tv := tview.NewTextView().SetDynamicColors(true)
-	tv.SetBorder(true).SetTitle(fmt.Sprintf(" Port Forwarding (Session %d) ", id))
+	styleTextView(tv, fmt.Sprintf(" Port Forwarding (Session %d) ", id))
 
 	instructions := `[yellow]Port Forwarding / Pivoting[white]
 
@@ -488,8 +522,7 @@ method is to upload a statically compiled Chisel binary or run Ligolo.
 		}
 		return event
 	})
-	tv.SetBackgroundColor(tcell.ColorBlack)
-	a.pages.AddPage("portfwd", wrapWithBanner(tv, true), true, true)
+	a.pages.AddPage("portfwd", wrapPage("Port Forwarding", "Quick pivoting guidance for the active session", "Esc returns to session actions", tv, true), true, true)
 }
 
 func (a *App) showModulesList(id int) {
@@ -500,9 +533,17 @@ func (a *App) showModulesList(id int) {
 
 	mm := modules.NewModuleManager()
 	list := tview.NewList()
+	styleList(list, fmt.Sprintf(" Modules for Session %d ", id))
 
-	for name, mod := range mm.Modules {
+	names := make([]string, 0, len(mm.Modules))
+	for name := range mm.Modules {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
 		modName := name
+		mod := mm.Modules[name]
 		list.AddItem(modName, mod.Description(), 0, func() {
 			err := mm.RunModule(modName, session)
 			if err != nil {
@@ -514,7 +555,6 @@ func (a *App) showModulesList(id int) {
 		})
 	}
 
-	list.SetBorder(true).SetTitle(fmt.Sprintf(" Modules for Session %d ", id))
 	list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEscape {
 			a.showSessionActions(id)
@@ -523,8 +563,7 @@ func (a *App) showModulesList(id int) {
 		return event
 	})
 
-	list.SetBackgroundColor(tcell.ColorBlack)
-	a.pages.AddPage("modules_list", wrapWithBanner(list, true), true, true)
+	a.pages.AddPage("modules_list", wrapPage("Run Modules", "These modules are meant to be executed after a reverse shell is established", "Esc returns to session actions", list, true), true, true)
 }
 
 func (a *App) openSessionTerminal(id int) {
@@ -568,16 +607,7 @@ func (a *App) openFileManager(id int) {
 		a.showSessionActions(id)
 	})
 
-	// Create layout with banner
-	bannerView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetTextAlign(tview.AlignCenter).
-		SetText(getBannerFromFile() + "\n[gray]v1.2 Stable Release - File Manager[-]\n[blue]Interactive File Management for Target Systems[-]")
-
-	bannerView.SetBackgroundColor(tcell.ColorBlack)
-
 	mainLayout := tview.NewFlex().SetDirection(tview.FlexRow)
-	mainLayout.AddItem(bannerView, 8, 0, false)
 	mainLayout.AddItem(fileManager.Layout, 0, 1, true)
 
 	// Set up input capture to handle escape key
@@ -591,13 +621,13 @@ func (a *App) openFileManager(id int) {
 	})
 
 	// Switch to file manager page
-	a.pages.AddPage("file_manager", wrapWithBanner(mainLayout, true), true, true)
+	a.pages.AddPage("file_manager", wrapPage("File Manager", "Manage target files directly from the main UI", "Esc returns to session actions", mainLayout, true), true, true)
 	a.pages.SwitchToPage("file_manager")
 }
 
 func (a *App) showInterfaces() {
 	tv := tview.NewTextView().SetDynamicColors(true)
-	tv.SetBorder(true).SetTitle(" Network Interfaces (Esc to go back) ")
+	styleTextView(tv, " Network Interfaces ")
 	tv.SetText(core.GetInterfaces())
 	tv.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEscape {
@@ -606,13 +636,12 @@ func (a *App) showInterfaces() {
 		}
 		return event
 	})
-	tv.SetBackgroundColor(tcell.ColorBlack)
-	a.pages.AddPage("interfaces", wrapWithBanner(tv, true), true, true)
+	a.pages.AddPage("interfaces", wrapPage("Interfaces", "Overview of the available local network interfaces", "Esc returns to the main dashboard", tv, true), true, true)
 }
 
 func (a *App) showNetworkInfo() {
 	tv := tview.NewTextView().SetDynamicColors(true)
-	tv.SetBorder(true).SetTitle(" Network Information (Esc to go back) ")
+	styleTextView(tv, " Network Information ")
 
 	// Get network info
 	networkInfo := utils.GetNetworkInfo()
@@ -620,7 +649,7 @@ func (a *App) showNetworkInfo() {
 
 	// Add additional info
 	infoText += "\n[yellow]Listening Ports:[white]\n"
-	if core.GlobalConfig.Ports != "" {
+	if core.GlobalConfig != nil && core.GlobalConfig.Ports != "" {
 		ports := strings.Split(core.GlobalConfig.Ports, ",")
 		for i, port := range ports {
 			infoText += fmt.Sprintf("  [%d] Port %s\n", i+1, strings.TrimSpace(port))
@@ -639,11 +668,14 @@ func (a *App) showNetworkInfo() {
 		}
 		return event
 	})
-	tv.SetBackgroundColor(tcell.ColorBlack)
-	a.pages.AddPage("network_info", wrapWithBanner(tv, true), true, true)
+	a.pages.AddPage("network_info", wrapPage("Network Info", "View the local IP, public IP, and active listener ports", "Esc returns to the main dashboard", tv, true), true, true)
 }
 
 func (a *App) showPayloads() {
+	// Disable TUI mouse reporting on this page so the terminal can use
+	// regular mouse drag selection for copying payload text.
+	a.tviewApp.EnableMouse(false)
+
 	payloads := payloadDefinitions()
 
 	// Get network info for IP replacement
@@ -655,21 +687,18 @@ func (a *App) showPayloads() {
 	}
 
 	list := tview.NewList()
-	list.SetBorder(true).SetTitle(" Payload Types ")
-	list.SetBackgroundColor(tcell.ColorBlack)
-	list.SetHighlightFullLine(true)
+	styleList(list, " Payload Types ")
 
 	preview := tview.NewTextView().
 		SetDynamicColors(true).
 		SetWrap(true)
-	preview.SetBorder(true).SetTitle(" Payload Preview ")
-	preview.SetBackgroundColor(tcell.ColorBlack)
+	styleTextView(preview, " Payload Preview ")
 
 	status := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter)
-	status.SetBackgroundColor(tcell.ColorBlack)
-	status.SetText("[gray]Enter to inspect | c to copy selected payload | r to refresh IP | Esc to go back[-]")
+	status.SetBackgroundColor(colorPanel)
+	status.SetText("[#788195]Drag mouse in terminal to select payload text  [#5c91ff]|[-]  Enter/c copies  [#5c91ff]|[-]  r refreshes IP  [#5c91ff]|[-]  Esc goes back[-]")
 
 	updatePreview := func(index int) {
 		if index < 0 || index >= len(payloads) {
@@ -678,7 +707,23 @@ func (a *App) showPayloads() {
 		item := payloads[index]
 		// Replace YOUR_IP with actual IP
 		displayCmd := strings.ReplaceAll(item.Command, "YOUR_IP", localIP)
-		preview.SetText(fmt.Sprintf("[yellow]%s[white]\n[green]%s[white]\n\n[cyan]%s[white]", item.Name, item.Description, displayCmd))
+		preview.SetText(fmt.Sprintf("[#ffd25c]%s[-]\n[#98d6bd]%s[-]\n\n[#5c91ff]%s[-]", item.Name, item.Description, displayCmd))
+	}
+
+	copyCurrentPayload := func() {
+		index := list.GetCurrentItem()
+		if index < 0 || index >= len(payloads) {
+			status.SetText("[red]No payload selected[-]")
+			return
+		}
+
+		cmdToCopy := strings.ReplaceAll(payloads[index].Command, "YOUR_IP", localIP)
+		if err := copyTextToClipboard(cmdToCopy); err != nil {
+			status.SetText(fmt.Sprintf("[red]Copy failed:[-] %v", err))
+			return
+		}
+
+		status.SetText(fmt.Sprintf("[#98d6bd]Payload copied:[-] %s", payloads[index].Name))
 	}
 
 	for i, payload := range payloads {
@@ -701,22 +746,26 @@ func (a *App) showPayloads() {
 		AddItem(root, 0, 1, true).
 		AddItem(status, 1, 0, false)
 
-	layout.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	handlePayloadKey := func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEscape {
+			a.tviewApp.EnableMouse(true)
 			a.pages.SwitchToPage("menu")
 			return nil
 		}
-		if event.Key() == tcell.KeyRune && (event.Rune() == 'c' || event.Rune() == 'C') {
-			index := list.GetCurrentItem()
-			if index >= 0 && index < len(payloads) {
-				// Replace YOUR_IP with actual IP before copying
-				cmdToCopy := strings.ReplaceAll(payloads[index].Command, "YOUR_IP", localIP)
-				if err := copyTextToClipboard(cmdToCopy); err != nil {
-					status.SetText(fmt.Sprintf("[red]Copy failed:[white] %v", err))
-				} else {
-					status.SetText(fmt.Sprintf("[green]Copied to clipboard:[white] %s", payloads[index].Name))
-				}
+		if event.Key() == tcell.KeyTAB {
+			if a.tviewApp.GetFocus() == list {
+				a.tviewApp.SetFocus(preview)
+			} else {
+				a.tviewApp.SetFocus(list)
 			}
+			return nil
+		}
+		if event.Key() == tcell.KeyEnter {
+			copyCurrentPayload()
+			return nil
+		}
+		if event.Key() == tcell.KeyRune && (event.Rune() == 'c' || event.Rune() == 'C') {
+			copyCurrentPayload()
 			return nil
 		}
 		if event.Key() == tcell.KeyRune && (event.Rune() == 'r' || event.Rune() == 'R') {
@@ -728,25 +777,32 @@ func (a *App) showPayloads() {
 				localIP = publicIP
 			}
 			updatePreview(list.GetCurrentItem())
-			status.SetText("[green]Network info refreshed[-]")
+			status.SetText("[#98d6bd]Network information refreshed[-]")
 			return nil
 		}
 		return event
-	})
+	}
 
-	a.pages.AddPage("payloads", wrapWithBanner(layout, true), true, true)
+	list.SetInputCapture(handlePayloadKey)
+	preview.SetInputCapture(handlePayloadKey)
+	layout.SetInputCapture(handlePayloadKey)
+
+	a.pages.AddPage("payloads", wrapPage("Payloads", "Preview payloads using the current listener IP", "Esc returns to the main dashboard", layout, true), true, true)
 }
 
 func (a *App) showAllModules() {
 	mm := modules.NewModuleManager()
 	list := tview.NewList()
-	list.SetBorder(true).SetTitle(" Available Modules (Esc to go back) ")
+	styleList(list, " Available Modules ")
 
-	// Add all modules to the list
-	for name, mod := range mm.Modules {
-		modName := name
-		modDesc := mod.Description()
-		list.AddItem(modName, modDesc, 0, nil)
+	names := make([]string, 0, len(mm.Modules))
+	for name := range mm.Modules {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		list.AddItem(name, mm.Modules[name].Description(), 0, nil)
 	}
 
 	list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -757,6 +813,5 @@ func (a *App) showAllModules() {
 		return event
 	})
 
-	list.SetBackgroundColor(tcell.ColorBlack)
-	a.pages.AddPage("all_modules", wrapWithBanner(list, true), true, true)
+	a.pages.AddPage("all_modules", wrapPage("Available Modules", "Browse every registered module; they are intended for use after a reverse shell is established", "Esc returns to the main dashboard", list, true), true, true)
 }

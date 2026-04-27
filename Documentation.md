@@ -710,6 +710,6 @@ Please report security vulnerabilities privately to:
 
 ---
 
-**Version**: 1.2.0  
+**Version**: 1.5.0  
 **Last Updated**: 2026-04-23  
 **Repository**: https://github.com/Aryma-f4/necromancy

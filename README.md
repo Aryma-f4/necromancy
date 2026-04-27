@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Latest Release](https://img.shields.io/github/v/release/Aryma-f4/necromancy?display_name=tag&label=release)](https://github.com/Aryma-f4/necromancy/releases/latest)
 
-**Necromancy** is a powerful post-exploitation shell manager written in Go, designed for penetration testers and red team operators. It provides comprehensive reverse shell management, advanced post-exploitation modules, and an intuitive terminal-based interface.
+**Necromancy** is a powerful shell handler built as a modern netcat replacement for RCE exploitation, aiming to simplify, accelerate, and optimize post-exploitation workflows.
 
 ## 🚀 Quick Navigation
 
@@ -352,7 +352,7 @@ chmod +x necromancy-macos-arm64
 go install github.com/Aryma-f4/necromancy@latest
 
 # Or install specific version
-go install github.com/Aryma-f4/necromancy@v1.2.0
+go install github.com/Aryma-f4/necromancy@v1.5.0
 ```
 
 #### Option 3: Build from Source
@@ -501,7 +501,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Version**: 1.2.0  
+**Version**: 1.5.0  
 **Repository**: https://github.com/Aryma-f4/necromancy  
 **License**: MIT
 

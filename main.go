@@ -21,9 +21,27 @@ import (
 
 // Version variables - will be set by build flags
 var (
-	Version   = "v1.2"
+	Version   = "v1.5.0"
 	BuildDate = "unknown"
 )
+
+func resolvedBuildDate() string {
+	if strings.TrimSpace(BuildDate) != "" && BuildDate != "unknown" {
+		return strings.ReplaceAll(BuildDate, "_", " ")
+	}
+
+	exePath, err := os.Executable()
+	if err != nil {
+		return "unknown"
+	}
+
+	info, err := os.Stat(exePath)
+	if err != nil {
+		return "unknown"
+	}
+
+	return info.ModTime().UTC().Format("2006-01-02 15:04:05")
+}
 
 func splitPorts(raw string) []string {
 	var ports []string
@@ -98,9 +116,7 @@ func main() {
 
 	// Display version info
 	fmt.Printf("\n Version : %s ", Version)
-	// Replace underscore with space for better display
-	displayDate := strings.Replace(BuildDate, "_", " ", 1)
-	fmt.Printf("\n Build Date : %s UTC", displayDate)
+	fmt.Printf("\n Build Date : %s UTC", resolvedBuildDate())
 	fmt.Printf("\n Multi-platform post-exploitation tool with advanced features:\n\n")
 
 	// Set version in updater package

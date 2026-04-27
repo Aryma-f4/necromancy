@@ -3,6 +3,7 @@
 # Build script for multi-platform release
 
 echo "Building Necromancy for multiple platforms..."
+BUILD_DATE=$(date -u +"%Y-%m-%d_%H:%M:%S")
 
 # Create release directory
 mkdir -p release
@@ -26,7 +27,7 @@ for platform in "${platforms[@]}"; do
     
     echo "Building for $goos/$goarch..."
     
-    env GOOS="$goos" GOARCH="$goarch" go build -ldflags="-s -w" -o "release/$output_name" .
+    env GOOS="$goos" GOARCH="$goarch" go build -ldflags="-s -w -X main.BuildDate=${BUILD_DATE}" -o "release/$output_name" .
     
     if [ $? -eq 0 ]; then
         echo "✅ Built: release/$output_name"
