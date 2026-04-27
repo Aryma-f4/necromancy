@@ -526,8 +526,7 @@ method is to upload a statically compiled Chisel binary or run Ligolo.
 }
 
 func (a *App) showModulesList(id int) {
-	session, exists := a.sessions.Get(id)
-	if !exists {
+	if _, exists := a.sessions.Get(id); !exists {
 		return
 	}
 
@@ -545,13 +544,13 @@ func (a *App) showModulesList(id int) {
 		modName := name
 		mod := mm.Modules[name]
 		list.AddItem(modName, mod.Description(), 0, func() {
-			err := mm.RunModule(modName, session)
-			if err != nil {
-				log.Printf("Module error: %v", err)
+			workspace := a.ensureSessionShellWorkspace(id)
+			if workspace == nil {
+				log.Printf("Module error: failed to open shell workspace for session %d", id)
 				a.showSessionActions(id)
 				return
 			}
-			a.openSessionTerminal(id)
+			a.showModuleTabSelector(id, modName, mm, workspace)
 		})
 	}
 
@@ -564,6 +563,74 @@ func (a *App) showModulesList(id int) {
 	})
 
 	a.pages.AddPage("modules_list", wrapPage("Run Modules", "These modules are meant to be executed after a reverse shell is established", "Esc returns to session actions", list, true), true, true)
+}
+
+func (a *App) showModuleTabSelector(id int, moduleName string, mm *modules.ModuleManager, workspace *sessionShellWorkspace) {
+	selector := tview.NewList()
+	styleList(selector, fmt.Sprintf(" Target Tab for %s ", moduleName))
+
+	tabChoices := workspace.tabChoices()
+	for i, tabTitle := range tabChoices {
+		tabIndex := i
+		choiceTitle := tabTitle
+		selector.AddItem(choiceTitle, fmt.Sprintf("Run module '%s' using %s", moduleName, choiceTitle), 0, func() {
+			if !workspace.activateTab(tabIndex) {
+				log.Printf("Module tab select error: invalid tab index %d", tabIndex)
+				return
+			}
+			if err := workspace.runModuleInTab(moduleName, mm); err != nil {
+				log.Printf("Module error: %v", err)
+				return
+			}
+			a.pages.SwitchToPage(workspace.pageName)
+			a.tviewApp.SetFocus(workspace.input)
+		})
+	}
+
+	selector.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape {
+			a.showModulesList(id)
+			return nil
+		}
+		return event
+	})
+
+	pageName := fmt.Sprintf("module_tab_selector_%d", id)
+	a.pages.AddPage(pageName, wrapPage(
+		"Select Module Target Tab",
+		fmt.Sprintf("Choose which shell tab should dispatch '%s'", moduleName),
+		"Esc returns to modules list",
+		selector,
+		true,
+	), true, true)
+	a.pages.SwitchToPage(pageName)
+}
+
+func (a *App) ensureSessionShellWorkspace(id int) *sessionShellWorkspace {
+	if workspace, ok := a.shellWorkspaces[id]; ok {
+		return workspace
+	}
+
+	session, exists := a.sessions.Get(id)
+	if !exists {
+		return nil
+	}
+
+	workspace := newSessionShellWorkspace(a, session)
+	a.shellWorkspaces[id] = workspace
+	a.pages.AddPage(
+		workspace.pageName,
+		wrapPage(
+			fmt.Sprintf("Shell Tabs - Session %d", id),
+			"Create multiple shell tabs for the same session; all tabs share the same underlying remote stream",
+			"Ctrl+N new tab  |  Ctrl+W close tab  |  Tab / Shift+Tab switch tab  |  Esc returns to session actions",
+			workspace.root,
+			true,
+		),
+		true,
+		true,
+	)
+	return workspace
 }
 
 func (a *App) openSessionTerminal(id int) {

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Aryma-f4/necromancy/core"
+	"github.com/Aryma-f4/necromancy/modules"
 	"github.com/Aryma-f4/necromancy/pty"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -40,34 +41,13 @@ type sessionShellWorkspace struct {
 }
 
 func (a *App) openSessionShellTabs(id int) {
-	session, exists := a.sessions.Get(id)
-	if !exists {
+	workspace := a.ensureSessionShellWorkspace(id)
+	if workspace == nil {
 		return
 	}
-
-	if workspace, ok := a.shellWorkspaces[id]; ok {
-		a.pages.SwitchToPage(workspace.pageName)
-		a.tviewApp.SetFocus(workspace.input)
-		workspace.setStatus("Returned to the tabbed shell workspace")
-		return
-	}
-
-	workspace := newSessionShellWorkspace(a, session)
-	a.shellWorkspaces[id] = workspace
-	a.pages.AddPage(
-		workspace.pageName,
-		wrapPage(
-			fmt.Sprintf("Shell Tabs - Session %d", id),
-			"Create multiple shell tabs for the same session; all tabs share the same underlying remote stream",
-			"Ctrl+N new tab  |  Ctrl+W close tab  |  Tab / Shift+Tab switch tab  |  Esc returns to session actions",
-			workspace.root,
-			true,
-		),
-		true,
-		true,
-	)
 	a.pages.SwitchToPage(workspace.pageName)
 	a.tviewApp.SetFocus(workspace.input)
+	workspace.setStatus("Returned to the tabbed shell workspace")
 }
 
 func newSessionShellWorkspace(app *App, session *core.Session) *sessionShellWorkspace {
@@ -257,6 +237,49 @@ func (ws *sessionShellWorkspace) switchTab(direction int) {
 	ws.refreshChrome()
 	ws.app.tviewApp.SetFocus(ws.input)
 	ws.setStatus(fmt.Sprintf("Switched to %s", active.title))
+}
+
+func (ws *sessionShellWorkspace) tabChoices() []string {
+	choices := make([]string, 0, len(ws.tabs))
+	for _, tab := range ws.tabs {
+		choices = append(choices, tab.title)
+	}
+	return choices
+}
+
+func (ws *sessionShellWorkspace) activateTab(index int) bool {
+	if index < 0 || index >= len(ws.tabs) {
+		return false
+	}
+	ws.activeTab = index
+	active := ws.tabs[ws.activeTab]
+	ws.tabPages.SwitchToPage(ws.tabPageName(active.id))
+	ws.refreshChrome()
+	ws.app.tviewApp.SetFocus(ws.input)
+	ws.setStatus(fmt.Sprintf("Switched to %s", active.title))
+	return true
+}
+
+func (ws *sessionShellWorkspace) runModuleInTab(moduleName string, mm *modules.ModuleManager) error {
+	tab := ws.currentTab()
+	if tab == nil {
+		return fmt.Errorf("no active tab available")
+	}
+
+	prompt := "$ "
+	if strings.EqualFold(ws.session.DetectedOS(), "windows") {
+		prompt = "PS> "
+	}
+	ws.appendToTab(tab, fmt.Sprintf("%srun_module %s\n", prompt, moduleName))
+
+	if err := mm.RunModule(moduleName, ws.session); err != nil {
+		ws.appendSystemMessage(fmt.Sprintf("Module '%s' failed: %v", moduleName, err))
+		return err
+	}
+
+	ws.appendToTab(tab, fmt.Sprintf("[local] Module '%s' dispatched from %s.\n", moduleName, tab.title))
+	ws.setStatus(fmt.Sprintf("Module '%s' sent from %s", moduleName, tab.title))
+	return nil
 }
 
 func (ws *sessionShellWorkspace) submitCurrentInput() {
